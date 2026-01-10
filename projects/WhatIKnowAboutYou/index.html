@@ -469,10 +469,198 @@
 				updateCell('browser-data', 7, navigator.onLine ? 'Online' : 'Offline');
 			}
 
+			// Collect hardware data
+			function collectHardwareData() {
+				updateCell('hardware-data', 0,
+					navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'Unavailable');
+
+				updateCell('hardware-data', 1,
+					navigator.hardwareConcurrency ? navigator.hardwareConcurrency + ' cores' : 'Unavailable');
+
+				updateCell('hardware-data', 2, screen.width + ' x ' + screen.height);
+
+				updateCell('hardware-data', 3, screen.availWidth + ' x ' + screen.availHeight);
+
+				updateCell('hardware-data', 4, window.devicePixelRatio || 'Unavailable');
+
+				updateCell('hardware-data', 5, screen.colorDepth + '-bit');
+
+				const touchPoints = navigator.maxTouchPoints || 0;
+				updateCell('hardware-data', 6, touchPoints > 0 ? 'Yes (' + touchPoints + ' points)' : 'No');
+
+				const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+				updateCell('hardware-data', 7, conn ? conn.effectiveType || 'Unknown' : 'Unavailable');
+
+				// Device type inference
+				const isMobile = /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+				const isTablet = /iPad|Tablet/i.test(navigator.userAgent) || (isMobile && screen.width > 600);
+				let deviceType = 'Desktop';
+				if (isTablet) deviceType = 'Tablet';
+				else if (isMobile) deviceType = 'Mobile';
+				updateCell('hardware-data', 8, deviceType);
+			}
+
+			// Generate canvas fingerprint
+			function getCanvasFingerprint() {
+				try {
+					const canvas = document.createElement('canvas');
+					const ctx = canvas.getContext('2d');
+					canvas.width = 200;
+					canvas.height = 50;
+
+					ctx.textBaseline = 'top';
+					ctx.font = '14px Arial';
+					ctx.fillStyle = '#f60';
+					ctx.fillRect(0, 0, 100, 50);
+					ctx.fillStyle = '#069';
+					ctx.fillText('Fingerprint test', 2, 15);
+					ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+					ctx.fillText('Canvas 2D', 4, 30);
+
+					const dataUrl = canvas.toDataURL();
+					// Simple hash
+					let hash = 0;
+					for (let i = 0; i < dataUrl.length; i++) {
+						const char = dataUrl.charCodeAt(i);
+						hash = ((hash << 5) - hash) + char;
+						hash = hash & hash;
+					}
+					return Math.abs(hash).toString(16);
+				} catch (e) {
+					return 'Unavailable';
+				}
+			}
+
+			// Get WebGL info
+			function getWebGLInfo() {
+				try {
+					const canvas = document.createElement('canvas');
+					const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+					if (!gl) return { renderer: 'Unavailable', vendor: 'Unavailable' };
+
+					const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+					if (debugInfo) {
+						return {
+							renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL),
+							vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)
+						};
+					}
+					return {
+						renderer: gl.getParameter(gl.RENDERER),
+						vendor: gl.getParameter(gl.VENDOR)
+					};
+				} catch (e) {
+					return { renderer: 'Unavailable', vendor: 'Unavailable' };
+				}
+			}
+
+			// Get audio fingerprint
+			function getAudioFingerprint() {
+				return new Promise(function(resolve) {
+					try {
+						const AudioContext = window.AudioContext || window.webkitAudioContext;
+						if (!AudioContext) {
+							resolve('Unavailable');
+							return;
+						}
+
+						const context = new AudioContext();
+						const oscillator = context.createOscillator();
+						const analyser = context.createAnalyser();
+						const gain = context.createGain();
+						const processor = context.createScriptProcessor(4096, 1, 1);
+
+						oscillator.type = 'triangle';
+						oscillator.frequency.setValueAtTime(10000, context.currentTime);
+						gain.gain.setValueAtTime(0, context.currentTime);
+
+						oscillator.connect(analyser);
+						analyser.connect(processor);
+						processor.connect(gain);
+						gain.connect(context.destination);
+
+						let fingerprint = 0;
+						processor.onaudioprocess = function(e) {
+							const data = e.inputBuffer.getChannelData(0);
+							for (let i = 0; i < data.length; i++) {
+								fingerprint += Math.abs(data[i]);
+							}
+						};
+
+						oscillator.start(0);
+
+						setTimeout(function() {
+							oscillator.stop();
+							processor.disconnect();
+							context.close();
+							resolve(fingerprint > 0 ? Math.abs(Math.round(fingerprint * 1000000)).toString(16) : 'Unavailable');
+						}, 100);
+					} catch (e) {
+						resolve('Unavailable');
+					}
+				});
+			}
+
+			// Detect available fonts
+			function detectFonts() {
+				const baseFonts = ['monospace', 'sans-serif', 'serif'];
+				const testFonts = [
+					'Arial', 'Arial Black', 'Calibri', 'Cambria', 'Comic Sans MS',
+					'Consolas', 'Courier New', 'Georgia', 'Helvetica', 'Impact',
+					'Lucida Console', 'Palatino Linotype', 'Segoe UI', 'Tahoma',
+					'Times New Roman', 'Trebuchet MS', 'Verdana', 'Roboto',
+					'Open Sans', 'Lato', 'Source Sans Pro', 'Ubuntu'
+				];
+
+				const testString = 'mmmmmmmmmmlli';
+				const testSize = '72px';
+				const canvas = document.createElement('canvas');
+				const ctx = canvas.getContext('2d');
+
+				function getWidth(font) {
+					ctx.font = testSize + ' ' + font;
+					return ctx.measureText(testString).width;
+				}
+
+				const baseWidths = {};
+				baseFonts.forEach(function(font) {
+					baseWidths[font] = getWidth(font);
+				});
+
+				const detected = [];
+				testFonts.forEach(function(font) {
+					for (let i = 0; i < baseFonts.length; i++) {
+						const width = getWidth(font + ',' + baseFonts[i]);
+						if (width !== baseWidths[baseFonts[i]]) {
+							detected.push(font);
+							break;
+						}
+					}
+				});
+
+				return detected.length + ' fonts detected';
+			}
+
+			// Collect all fingerprint data
+			async function collectFingerprintData() {
+				updateCell('fingerprint-data', 0, getCanvasFingerprint());
+
+				const webgl = getWebGLInfo();
+				updateCell('fingerprint-data', 1, webgl.renderer);
+				updateCell('fingerprint-data', 2, webgl.vendor);
+
+				const audioFp = await getAudioFingerprint();
+				updateCell('fingerprint-data', 3, audioFp);
+
+				updateCell('fingerprint-data', 4, detectFonts());
+			}
+
 			// Initialize on page load
 			document.addEventListener('DOMContentLoaded', function() {
 				fetchNetworkData();
 				collectBrowserData();
+				collectHardwareData();
+				collectFingerprintData();
 			});
 		})();
 	</script>
