@@ -141,6 +141,27 @@
 			text-align: center;
 		}
 
+		.fact {
+			background: rgba(255, 255, 255, 0.05);
+			border-left: 4px solid var(--warning-accent);
+			padding: 1.5rem;
+			margin: 1.5rem 0;
+			border-radius: 0 8px 8px 0;
+		}
+
+		.fact h3 {
+			color: var(--warning-accent);
+			margin: 0 0 0.75rem 0;
+			border: none;
+			padding: 0;
+		}
+
+		.fact p {
+			margin: 0;
+			color: var(--dark-text);
+			line-height: 1.7;
+		}
+
 		/* Light section (protect) */
 		#protect {
 			background: var(--light-bg);
@@ -353,7 +374,46 @@
 
 		<section id="facts">
 			<h2>What This Means</h2>
-			<!-- Facts content will be added in Task 7 -->
+
+			<div class="fact">
+				<h3>You encounter approximately 177 different trackers every week</h3>
+				<p>Research shows that the average internet user encounters around 177 unique tracking entities in a typical week of browsing. What's particularly striking is that you'll encounter half of those trackers in just the first two hours of browsing. Continuous browsing sessions expose you to significantly more unique trackers than shorter, fragmented sessions—even when the total browsing time is the same. This means that a single long browsing session can expose you to dozens of new trackers you've never encountered before.</p>
+			</div>
+
+			<div class="fact">
+				<h3>Google sees 63% of the websites you visit</h3>
+				<p>Google's tracking presence extends far beyond its own properties. Through Google Analytics, Google Ads, Google Fonts, reCAPTCHA, and various other embedded services, Google has visibility into approximately 63% of all websites you visit. Facebook sees about 30%, and Microsoft sees roughly 23%. These companies don't need to own a website to track your visit—their code is embedded across millions of sites. Every time you see a "Sign in with Google" button, a YouTube embed, or a Google Maps widget, that site is reporting your visit back to Google.</p>
+			</div>
+
+			<div class="fact">
+				<h3>Trackers share data with each other</h3>
+				<p>The tracking industry isn't made up of isolated actors—it's a cooperative network. Studies have shown that when tracking companies share data with each other, they can increase their knowledge about individual users by 5% to 50%. This means the profile that one company builds about you can be enriched by data from dozens of other sources. Your shopping habits from one site, your reading preferences from another, and your social connections from a third can all be combined into a comprehensive profile that no single company could build alone.</p>
+			</div>
+
+			<div class="fact">
+				<h3>Your browser fingerprint is likely unique</h3>
+				<p>Even without cookies, trackers can identify you with remarkable accuracy using browser fingerprinting. Your specific combination of screen resolution, installed fonts, browser plugins, graphics card, timezone, and dozens of other technical details creates a fingerprint that is almost certainly unique to you. Studies show that over 90% of browsers have a unique fingerprint. Unlike cookies, which you can delete, your fingerprint is determined by your hardware and software configuration—it's extremely difficult to change without significantly altering your browsing experience.</p>
+			</div>
+
+			<div class="fact">
+				<h3>"Do Not Track" makes you easier to track</h3>
+				<p>Here's an irony of web privacy: enabling the "Do Not Track" setting in your browser can actually make you more identifiable, not less. Because the vast majority of users leave this setting at its default (disabled), enabling it adds another data point to your fingerprint that helps distinguish you from others. Furthermore, the "Do Not Track" header is merely a request—websites are under no legal obligation to honor it, and most simply ignore it entirely while noting that you sent it.</p>
+			</div>
+
+			<div class="fact">
+				<h3>Facebook tracks health and political sites disproportionately</h3>
+				<p>While Facebook's overall web presence covers about 30% of sites, its tracking is not evenly distributed. Research has found that Facebook has visibility into approximately 60% of political websites and 50% of health-related websites. This means sensitive information about your political views and health concerns is being collected at nearly twice the rate of your general browsing. This data can be used for ad targeting, but it also creates a detailed profile of your most personal concerns and beliefs.</p>
+			</div>
+
+			<div class="fact">
+				<h3>Incognito mode doesn't hide your fingerprint</h3>
+				<p>Private browsing or "incognito" mode provides less protection than many users assume. While it prevents your browsing history and cookies from being saved locally, it does nothing to prevent websites from fingerprinting your browser. Your screen resolution, graphics card, font list, and other hardware characteristics remain exactly the same in incognito mode. Trackers can still identify you across sessions and potentially link your "private" browsing back to your regular identity.</p>
+			</div>
+
+			<div class="fact">
+				<h3>Blocking all trackers breaks many websites</h3>
+				<p>Simply blocking all known tracking domains isn't a practical solution for most users. Many domains serve dual purposes—delivering both legitimate content and tracking scripts. A domain that hosts tracking code might also host essential JavaScript libraries, fonts, or images that a website needs to function. This is why sophisticated privacy tools use "fine-grained analysis" to restrict tracker access on a case-by-case basis, rather than blanket blocking. Finding the balance between privacy and functionality remains one of the central challenges of web privacy.</p>
+			</div>
 		</section>
 
 		<section id="protect">
