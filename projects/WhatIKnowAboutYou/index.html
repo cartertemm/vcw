@@ -655,12 +655,131 @@
 				updateCell('fingerprint-data', 4, detectFonts());
 			}
 
+			// Check storage availability
+			function collectStorageData() {
+				// LocalStorage
+				try {
+					localStorage.setItem('test', 'test');
+					localStorage.removeItem('test');
+					updateCell('storage-data', 0, 'Available');
+				} catch (e) {
+					updateCell('storage-data', 0, 'Blocked');
+				}
+
+				// SessionStorage
+				try {
+					sessionStorage.setItem('test', 'test');
+					sessionStorage.removeItem('test');
+					updateCell('storage-data', 1, 'Available');
+				} catch (e) {
+					updateCell('storage-data', 1, 'Blocked');
+				}
+
+				// IndexedDB
+				try {
+					const idb = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB;
+					updateCell('storage-data', 2, idb ? 'Available' : 'Unavailable');
+				} catch (e) {
+					updateCell('storage-data', 2, 'Blocked');
+				}
+
+				updateCell('storage-data', 3, history.length + ' entries');
+				updateCell('storage-data', 4, location.pathname || '/');
+			}
+
+			// Check permissions
+			async function collectPermissionsData() {
+				// Notification permission
+				if ('Notification' in window) {
+					updateCell('permissions-data', 0, Notification.permission);
+				} else {
+					updateCell('permissions-data', 0, 'Not supported');
+				}
+
+				// Geolocation permission
+				if (navigator.permissions) {
+					try {
+						const geo = await navigator.permissions.query({ name: 'geolocation' });
+						updateCell('permissions-data', 1, geo.state);
+					} catch (e) {
+						updateCell('permissions-data', 1, 'Unknown');
+					}
+				} else {
+					updateCell('permissions-data', 1, 'Unknown');
+				}
+
+				// Ad blocker detection
+				detectAdBlocker();
+
+				// WebRTC leak check
+				detectWebRTCLeak();
+			}
+
+			// Detect ad blocker
+			function detectAdBlocker() {
+				const bait = document.createElement('div');
+				bait.className = 'adsbox ad-banner ad-placeholder pub_300x250';
+				bait.style.cssText = 'width:1px;height:1px;position:absolute;left:-10000px;top:-10000px;';
+				document.body.appendChild(bait);
+
+				setTimeout(function() {
+					const blocked = bait.offsetHeight === 0 ||
+						bait.offsetParent === null ||
+						getComputedStyle(bait).display === 'none';
+					updateCell('permissions-data', 2, blocked ? 'Yes (detected)' : 'No (not detected)');
+					bait.remove();
+				}, 100);
+			}
+
+			// Check for WebRTC leak
+			function detectWebRTCLeak() {
+				if (!window.RTCPeerConnection) {
+					updateCell('permissions-data', 3, 'WebRTC not supported');
+					return;
+				}
+
+				const pc = new RTCPeerConnection({ iceServers: [] });
+				const ips = [];
+
+				pc.createDataChannel('');
+				pc.createOffer().then(function(offer) {
+					return pc.setLocalDescription(offer);
+				}).catch(function() {});
+
+				pc.onicecandidate = function(event) {
+					if (!event.candidate) {
+						pc.close();
+						if (ips.length > 0) {
+							updateCell('permissions-data', 3, 'Exposed: ' + ips.join(', '));
+						} else {
+							updateCell('permissions-data', 3, 'No leak detected');
+						}
+						return;
+					}
+
+					const candidate = event.candidate.candidate;
+					const ipMatch = candidate.match(/(\d{1,3}\.){3}\d{1,3}/);
+					if (ipMatch && !ips.includes(ipMatch[0])) {
+						ips.push(ipMatch[0]);
+					}
+				};
+
+				setTimeout(function() {
+					if (pc.signalingState !== 'closed') {
+						pc.close();
+						updateCell('permissions-data', 3, ips.length > 0 ? 'Exposed: ' + ips.join(', ') : 'No leak detected');
+					}
+				}, 1000);
+			}
+
 			// Initialize on page load
 			document.addEventListener('DOMContentLoaded', function() {
 				fetchNetworkData();
 				collectBrowserData();
 				collectHardwareData();
 				collectFingerprintData();
+				collectStorageData();
+				collectPermissionsData();
 			});
 		})();
 	</script>
