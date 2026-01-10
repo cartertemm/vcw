@@ -5,7 +5,228 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>What They Know About You</title>
 	<style>
-		/* Styles will be added in Task 2 */
+		:root {
+			/* Dark theme colors */
+			--dark-bg: #0a0a0a;
+			--dark-bg-card: #1a1a1a;
+			--dark-border: #333;
+			--dark-text: #e0e0e0;
+			--dark-text-emphasis: #fff;
+			--dark-accent: #ff6b6b;
+
+			/* Light theme colors */
+			--light-bg: #f8f8f8;
+			--light-bg-card: #fff;
+			--light-border: #ddd;
+			--light-text: #333;
+			--light-text-muted: #666;
+			--light-accent: #2d7d46;
+
+			/* Transitional colors */
+			--warning-bg: #1a1a0a;
+			--warning-accent: #d4a000;
+
+			/* Typography */
+			--font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+			--font-mono: "SF Mono", "Cascadia Code", "Consolas", monospace;
+		}
+
+		*,
+		*::before,
+		*::after {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			padding: 0;
+			font-family: var(--font-sans);
+			line-height: 1.6;
+		}
+
+		header {
+			background: var(--dark-bg);
+			color: var(--dark-text);
+			padding: 3rem 2rem;
+			text-align: center;
+		}
+
+		header h1 {
+			color: var(--dark-text-emphasis);
+			font-size: 2.5rem;
+			margin: 0 0 1rem 0;
+		}
+
+		header .disclaimer {
+			max-width: 600px;
+			margin: 0 auto;
+			font-size: 0.95rem;
+			opacity: 0.85;
+		}
+
+		main {
+			max-width: 1000px;
+			margin: 0 auto;
+		}
+
+		h2 {
+			font-size: 1.75rem;
+			margin: 0 0 1.5rem 0;
+		}
+
+		h3 {
+			font-size: 1.25rem;
+			margin: 2rem 0 1rem 0;
+		}
+
+		/* Dark section (reveal) */
+		#reveal {
+			background: var(--dark-bg);
+			color: var(--dark-text);
+			padding: 2rem;
+		}
+
+		#reveal h2 {
+			color: var(--dark-text-emphasis);
+			text-align: center;
+		}
+
+		#reveal h3 {
+			color: var(--dark-accent);
+			border-bottom: 1px solid var(--dark-border);
+			padding-bottom: 0.5rem;
+		}
+
+		/* Tables in dark section */
+		#reveal table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-bottom: 1.5rem;
+			background: var(--dark-bg-card);
+			border-radius: 8px;
+			overflow: hidden;
+		}
+
+		#reveal th,
+		#reveal td {
+			padding: 0.75rem 1rem;
+			text-align: left;
+			border-bottom: 1px solid var(--dark-border);
+		}
+
+		#reveal th {
+			background: var(--dark-bg);
+			color: var(--dark-text-emphasis);
+			font-weight: 600;
+		}
+
+		#reveal td:last-child {
+			font-family: var(--font-mono);
+			color: var(--dark-text-emphasis);
+			word-break: break-all;
+		}
+
+		#reveal tr:last-child td {
+			border-bottom: none;
+		}
+
+		/* Transitional section (facts) */
+		#facts {
+			background: linear-gradient(to bottom, var(--dark-bg) 0%, var(--warning-bg) 50%, var(--light-bg) 100%);
+			padding: 3rem 2rem;
+		}
+
+		#facts h2 {
+			color: var(--dark-text-emphasis);
+			text-align: center;
+		}
+
+		/* Light section (protect) */
+		#protect {
+			background: var(--light-bg);
+			color: var(--light-text);
+			padding: 2rem;
+		}
+
+		#protect h2 {
+			color: var(--light-text);
+			text-align: center;
+		}
+
+		#protect h3 {
+			color: var(--light-accent);
+			border-bottom: 1px solid var(--light-border);
+			padding-bottom: 0.5rem;
+		}
+
+		#protect ul {
+			list-style: none;
+			padding: 0;
+		}
+
+		#protect li {
+			padding: 0.5rem 0;
+			padding-left: 1.5rem;
+			position: relative;
+		}
+
+		#protect li::before {
+			content: "✓";
+			position: absolute;
+			left: 0;
+			color: var(--light-accent);
+			font-weight: bold;
+		}
+
+		#protect a {
+			color: var(--light-accent);
+			text-decoration: underline;
+		}
+
+		#protect a:hover {
+			text-decoration: none;
+		}
+
+		footer {
+			background: var(--light-bg);
+			color: var(--light-text-muted);
+			text-align: center;
+			padding: 2rem;
+			border-top: 1px solid var(--light-border);
+			font-size: 0.9rem;
+		}
+
+		/* Loading state */
+		.loading {
+			opacity: 0.5;
+			font-style: italic;
+		}
+
+		/* Responsive */
+		@media (max-width: 600px) {
+			header {
+				padding: 2rem 1rem;
+			}
+
+			header h1 {
+				font-size: 1.75rem;
+			}
+
+			#reveal,
+			#facts,
+			#protect {
+				padding: 1.5rem 1rem;
+			}
+
+			#reveal table {
+				font-size: 0.9rem;
+			}
+
+			#reveal th,
+			#reveal td {
+				padding: 0.5rem;
+			}
+		}
 	</style>
 </head>
 <body>
