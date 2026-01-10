@@ -208,6 +208,31 @@
 			text-decoration: none;
 		}
 
+		#protect .intro {
+			text-align: center;
+			font-size: 1.1rem;
+			margin-bottom: 2rem;
+			color: var(--light-text-muted);
+		}
+
+		#protect .resources {
+			list-style: none;
+			padding: 0;
+		}
+
+		#protect .resources li {
+			padding: 0.75rem 0;
+			padding-left: 0;
+		}
+
+		#protect .resources li::before {
+			display: none;
+		}
+
+		#protect .resources a {
+			font-weight: 600;
+		}
+
 		footer {
 			background: var(--light-bg);
 			color: var(--light-text-muted);
@@ -418,7 +443,44 @@
 
 		<section id="protect">
 			<h2>Protect Yourself</h2>
-			<!-- Protection tips will be added in Task 8 -->
+			<p class="intro">The good news: you can take steps to reduce your digital footprint and make tracking more difficult.</p>
+
+			<h3>Browser Settings</h3>
+			<ul>
+				<li>Enable "Do Not Track" in your browser settings—despite its limitations, it signals your privacy preference</li>
+				<li>Disable third-party cookies, which are used primarily for cross-site tracking</li>
+				<li>Clear cookies and site data regularly to reset tracking identifiers</li>
+				<li>Use private/incognito mode for sensitive browsing sessions</li>
+			</ul>
+
+			<h3>Extensions & Tools</h3>
+			<ul>
+				<li>Install an ad blocker like uBlock Origin—it blocks ads and many tracking scripts</li>
+				<li>Add Privacy Badger (from EFF) to automatically learn and block invisible trackers</li>
+				<li>Consider a reputable VPN service to mask your IP address and location from websites</li>
+			</ul>
+
+			<h3>Browsing Habits</h3>
+			<ul>
+				<li>Log out of Google, Facebook, and other accounts when you're not actively using them</li>
+				<li>Use separate browsers for different purposes (e.g., one for social media, one for general browsing)</li>
+				<li>Regularly review and revoke unnecessary app permissions and connected services</li>
+			</ul>
+
+			<h3>Going Further</h3>
+			<ul>
+				<li>Switch to privacy-focused browsers like Firefox (with Enhanced Tracking Protection) or Brave</li>
+				<li>Use search engines that don't track you, such as DuckDuckGo or Startpage</li>
+				<li>Consider browser compartmentalization with tools like Firefox Multi-Account Containers</li>
+			</ul>
+
+			<h3>Learn More & Test Your Privacy</h3>
+			<p>These tools provide more comprehensive analysis of your browser's privacy and fingerprint:</p>
+			<ul class="resources">
+				<li><a href="https://coveryourtracks.eff.org" target="_blank" rel="noopener noreferrer">Cover Your Tracks (EFF)</a> — Test how well your browser protects you from tracking and fingerprinting</li>
+				<li><a href="https://amiunique.org" target="_blank" rel="noopener noreferrer">AmIUnique</a> — Detailed analysis of your browser fingerprint and how unique you are</li>
+				<li><a href="https://browserleaks.com" target="_blank" rel="noopener noreferrer">BrowserLeaks</a> — Comprehensive suite of browser security and privacy tests</li>
+			</ul>
 		</section>
 	</main>
 
