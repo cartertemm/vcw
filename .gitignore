@@ -1,0 +1,86 @@
+# AI-Assisted Programming Tools
+
+# Claude Code
+.claude/
+
+# Cursor
+.cursor/
+.cursorignore
+.cursorrules
+
+# Aider
+.aider*
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v3/
+
+# Continue
+.continue/
+.continuerc.json
+
+# Codeium
+.codeium/
+
+# Windsurf
+.windsurf/
+
+# Tabnine
+.tabnine/
+.tabnine_project.json
+
+# Cody (Sourcegraph)
+.cody/
+
+# GitHub Copilot
+.copilot/
+.github/copilot-instructions.md
+
+# Amazon CodeWhisperer / Amazon Q
+.aws/amazonq/
+.amazonq/
+
+# JetBrains AI Assistant
+.idea/ai-assistant/
+
+# Supermaven
+.supermaven/
+
+# Replit AI
+.replit
+replit.nix
+
+# Bloop
+.bloop/
+
+# Pieces
+.pieces/
+
+# Codium AI (PR-Agent, etc.)
+.codiumai/
+
+# Sweep AI
+.sweep/
+sweep.yaml
+
+# Devin
+.devin/
+
+# OpenHands / OpenDevin
+.openhands/
+
+# SWE-agent
+.swe-agent/
+
+# Mentat
+.mentat/
+
+# GPT Pilot
+.gpt-pilot/
+pilot/
+
+# Smol Developer
+.smol/
+
+# AI-generated code markers/logs
+*.ai-generated
+.ai-history/
