@@ -138,7 +138,6 @@ Visual gradient transition from dark to light. Muted amber/yellow accents for "c
 Background shifts to off-white (#f8f8f8), dark text (#333), calming blue or green accents for "safety" feel. Brief intro: "The good news: you can take steps to reduce your exposure."
 
 #### Browser Settings
-- Enable "Do Not Track" (despite the irony, it's still a signal worth sending)
 - Disable third-party cookies in your browser settings
 - Clear cookies and site data regularly
 - Use private/incognito mode for sensitive browsing
