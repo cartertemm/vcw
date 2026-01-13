@@ -40,7 +40,7 @@ Simply open `index.html` in any modern web browser. No server, build step, or in
 ```
 # Clone and open
 git clone <repository>
-cd WhatIKnowAboutYou
+cd WhatTheyKnowAboutYou
 open index.html  # or double-click the file
 ```
 
