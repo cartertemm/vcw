@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Data Encoder/Decoder</title>
+	<style>
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background: #1a1a2e;
+			color: #eee;
+			min-height: 100vh;
+			padding: 2rem;
+		}
+
+		.container {
+			max-width: 800px;
+			margin: 0 auto;
+		}
+
+		h1 {
+			font-size: 1.5rem;
+			font-weight: 400;
+			margin-bottom: 1.5rem;
+			color: #888;
+		}
+
+		.visually-hidden {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
+
+		textarea {
+			width: 100%;
+			height: 300px;
+			background: #16213e;
+			border: 1px solid #333;
+			border-radius: 8px;
+			color: #eee;
+			font-family: 'Consolas', 'Monaco', monospace;
+			font-size: 14px;
+			padding: 1rem;
+			resize: vertical;
+			margin-bottom: 1rem;
+		}
+
+		textarea:focus {
+			outline: none;
+			border-color: #4a6fa5;
+		}
+
+		.controls {
+			display: flex;
+			gap: 0.5rem;
+			flex-wrap: wrap;
+			align-items: center;
+			margin-bottom: 1rem;
+		}
+
+		select {
+			flex: 1;
+			min-width: 200px;
+			padding: 0.75rem;
+			background: #16213e;
+			border: 1px solid #333;
+			border-radius: 6px;
+			color: #eee;
+			font-size: 14px;
+			cursor: pointer;
+		}
+
+		select:focus {
+			outline: none;
+			border-color: #4a6fa5;
+		}
+
+		optgroup {
+			background: #1a1a2e;
+			color: #888;
+		}
+
+		option {
+			background: #16213e;
+			color: #eee;
+			padding: 0.5rem;
+		}
+
+		button {
+			padding: 0.75rem 1.5rem;
+			border: none;
+			border-radius: 6px;
+			font-size: 14px;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+
+		.btn-encode {
+			background: #4a6fa5;
+			color: #fff;
+		}
+
+		.btn-encode:hover:not(:disabled) {
+			background: #5a7fb5;
+		}
+
+		.btn-decode {
+			background: #2d4a3e;
+			color: #fff;
+		}
+
+		.btn-decode:hover:not(:disabled) {
+			background: #3d5a4e;
+		}
+
+		.btn-copy {
+			background: #444;
+			color: #fff;
+		}
+
+		.btn-copy:hover {
+			background: #555;
+		}
+
+		.btn-clear {
+			background: #5a3a3a;
+			color: #fff;
+		}
+
+		.btn-clear:hover {
+			background: #6a4a4a;
+		}
+
+		button:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		.special-options {
+			display: none;
+			padding: 1rem;
+			background: #16213e;
+			border: 1px solid #333;
+			border-radius: 6px;
+			margin-bottom: 1rem;
+		}
+
+		.special-options.visible {
+			display: block;
+		}
+
+		.special-options label {
+			display: block;
+			margin-bottom: 0.5rem;
+			color: #888;
+		}
+
+		.special-options input[type="text"],
+		.special-options input[type="number"] {
+			padding: 0.5rem;
+			background: #1a1a2e;
+			border: 1px solid #333;
+			border-radius: 4px;
+			color: #eee;
+			font-size: 14px;
+			width: 100%;
+			max-width: 200px;
+		}
+
+		.special-options input[type="range"] {
+			width: 200px;
+			margin-right: 1rem;
+		}
+
+		.status {
+			padding: 0.75rem;
+			border-radius: 6px;
+			margin-top: 1rem;
+			display: none;
+		}
+
+		.status.error {
+			display: block;
+			background: #5a3a3a;
+			color: #faa;
+		}
+
+		.status.success {
+			display: block;
+			background: #2d4a3e;
+			color: #afa;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<h1>Data Encoder/Decoder</h1>
+
+		<label for="text" class="visually-hidden">Text to encode or decode</label>
+		<textarea id="text" placeholder="Enter text to encode or decode..."></textarea>
+
+		<div class="controls">
+			<label for="format" class="visually-hidden">Encoding format</label>
+			<select id="format">
+				<optgroup label="Binary/Numeric">
+					<option value="base64">Base64</option>
+					<option value="base32">Base32</option>
+					<option value="hex">Hexadecimal</option>
+					<option value="binary">Binary</option>
+					<option value="octal">Octal</option>
+					<option value="decimal">Decimal (ASCII)</option>
+				</optgroup>
+				<optgroup label="Web">
+					<option value="url">URL Encoding</option>
+					<option value="html-named">HTML Entities (Named)</option>
+					<option value="html-numeric">HTML Entities (Numeric)</option>
+					<option value="punycode">Punycode</option>
+				</optgroup>
+				<optgroup label="Unicode/Escape">
+					<option value="unicode">Unicode Escape (\u)</option>
+					<option value="js-escape">JavaScript Escape (\x)</option>
+					<option value="css-escape">CSS Escape</option>
+					<option value="utf8-bytes">UTF-8 Bytes</option>
+					<option value="utf16">UTF-16 Code Units</option>
+				</optgroup>
+				<optgroup label="Ciphers">
+					<option value="rot13">ROT13</option>
+					<option value="rot47">ROT47</option>
+					<option value="caesar">Caesar Cipher</option>
+					<option value="atbash">Atbash</option>
+					<option value="vigenere">Vigenère Cipher</option>
+					<option value="pig-latin">Pig Latin</option>
+				</optgroup>
+				<optgroup label="Transforms">
+					<option value="reverse">Reverse Text</option>
+					<option value="reverse-words">Reverse Words</option>
+					<option value="upside-down">Upside Down</option>
+					<option value="leetspeak">Leetspeak (1337)</option>
+					<option value="nato">NATO Phonetic</option>
+					<option value="alternating">aLtErNaTiNg CaSe</option>
+				</optgroup>
+				<optgroup label="Hashes (Encode Only)">
+					<option value="md5">MD5</option>
+					<option value="sha1">SHA-1</option>
+					<option value="sha256">SHA-256</option>
+					<option value="sha512">SHA-512</option>
+				</optgroup>
+				<optgroup label="Data">
+					<option value="json-pretty">JSON Pretty</option>
+					<option value="json-minify">JSON Minify</option>
+					<option value="xml-escape">XML Escape</option>
+					<option value="regex-escape">Regex Escape</option>
+					<option value="jwt-decode">JWT Decode</option>
+				</optgroup>
+				<optgroup label="Legacy/Other">
+					<option value="quoted-printable">Quoted-Printable</option>
+					<option value="uuencode">UUencode</option>
+					<option value="morse">Morse Code</option>
+					<option value="roman">Roman Numerals</option>
+					<option value="braille">Braille</option>
+				</optgroup>
+			</select>
+			<button class="btn-encode" id="encodeBtn">Encode</button>
+			<button class="btn-decode" id="decodeBtn">Decode</button>
+			<button class="btn-copy" id="copyBtn">Copy</button>
+			<button class="btn-clear" id="clearBtn">Clear</button>
+		</div>
+
+		<div class="special-options" id="caesarOptions">
+			<label for="caesarShift">Shift Amount: <span id="shiftValue">13</span></label>
+			<input type="range" id="caesarShift" min="1" max="25" value="13" aria-describedby="shiftValue">
+		</div>
+
+		<div class="special-options" id="vigenereOptions">
+			<label for="vigenereKey">Key:</label>
+			<input type="text" id="vigenereKey" placeholder="Enter key..." value="SECRET">
+		</div>
+
+		<div class="status" id="status" role="status" aria-live="polite"></div>
+	</div>
+
+	<script>
+		const textArea = document.getElementById('text');
+		const formatSelect = document.getElementById('format');
+		const encodeBtn = document.getElementById('encodeBtn');
+		const decodeBtn = document.getElementById('decodeBtn');
+		const copyBtn = document.getElementById('copyBtn');
+		const clearBtn = document.getElementById('clearBtn');
+		const statusEl = document.getElementById('status');
+		const caesarOptions = document.getElementById('caesarOptions');
+		const caesarShift = document.getElementById('caesarShift');
+		const shiftValue = document.getElementById('shiftValue');
+		const vigenereOptions = document.getElementById('vigenereOptions');
+		const vigenereKey = document.getElementById('vigenereKey');
+
+		// Hash-only formats (no decode)
+		const encodeOnlyFormats = ['md5', 'sha1', 'sha256', 'sha512'];
+		// Decode-only formats
+		const decodeOnlyFormats = ['jwt-decode'];
+
+		// Format change handler
+		formatSelect.addEventListener('change', () => {
+			const format = formatSelect.value;
+
+			// Show/hide special options
+			caesarOptions.classList.toggle('visible', format === 'caesar');
+			vigenereOptions.classList.toggle('visible', format === 'vigenere');
+
+			// Enable/disable buttons
+			encodeBtn.disabled = decodeOnlyFormats.includes(format);
+			decodeBtn.disabled = encodeOnlyFormats.includes(format);
+		});
+
+		caesarShift.addEventListener('input', () => {
+			shiftValue.textContent = caesarShift.value;
+		});
+
+		// HTML entity maps
+		const htmlEntities = {
+			'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+			'©': '&copy;', '®': '&reg;', '™': '&trade;', '€': '&euro;', '£': '&pound;',
+			'¥': '&yen;', '¢': '&cent;', '§': '&sect;', '°': '&deg;', '±': '&plusmn;',
+			'×': '&times;', '÷': '&divide;', '≠': '&ne;', '≤': '&le;', '≥': '&ge;',
+			'∞': '&infin;', '←': '&larr;', '→': '&rarr;', '↑': '&uarr;', '↓': '&darr;',
+			'♠': '&spades;', '♣': '&clubs;', '♥': '&hearts;', '♦': '&diams;',
+			' ': '&nbsp;', '—': '&mdash;', '–': '&ndash;', '…': '&hellip;'
+		};
+
+		const htmlEntitiesReverse = Object.fromEntries(
+			Object.entries(htmlEntities).map(([k, v]) => [v, k])
+		);
+
+		// Upside down character map
+		const upsideDownMap = {
+			'a': 'ɐ', 'b': 'q', 'c': 'ɔ', 'd': 'p', 'e': 'ǝ', 'f': 'ɟ', 'g': 'ƃ',
+			'h': 'ɥ', 'i': 'ᴉ', 'j': 'ɾ', 'k': 'ʞ', 'l': 'l', 'm': 'ɯ', 'n': 'u',
+			'o': 'o', 'p': 'd', 'q': 'b', 'r': 'ɹ', 's': 's', 't': 'ʇ', 'u': 'n',
+			'v': 'ʌ', 'w': 'ʍ', 'x': 'x', 'y': 'ʎ', 'z': 'z',
+			'A': '∀', 'B': 'q', 'C': 'Ɔ', 'D': 'p', 'E': 'Ǝ', 'F': 'Ⅎ', 'G': '⅁',
+			'H': 'H', 'I': 'I', 'J': 'ſ', 'K': 'ʞ', 'L': '˥', 'M': 'W', 'N': 'N',
+			'O': 'O', 'P': 'Ԁ', 'Q': 'Q', 'R': 'ɹ', 'S': 'S', 'T': '⊥', 'U': '∩',
+			'V': 'Λ', 'W': 'M', 'X': 'X', 'Y': '⅄', 'Z': 'Z',
+			'0': '0', '1': 'Ɩ', '2': 'ᄅ', '3': 'Ɛ', '4': 'ㄣ', '5': 'ϛ',
+			'6': '9', '7': 'ㄥ', '8': '8', '9': '6',
+			'.': '˙', ',': "'", "'": ',', '"': '„', '!': '¡', '?': '¿',
+			'(': ')', ')': '(', '[': ']', ']': '[', '{': '}', '}': '{',
+			'<': '>', '>': '<', '&': '⅋', '_': '‾'
+		};
+
+		const upsideDownReverse = Object.fromEntries(
+			Object.entries(upsideDownMap).map(([k, v]) => [v, k])
+		);
+
+		// Leetspeak map
+		const leetMap = {
+			'a': '4', 'b': '8', 'c': '(', 'd': 'd', 'e': '3', 'f': 'f', 'g': '9',
+			'h': '#', 'i': '1', 'j': 'j', 'k': 'k', 'l': '1', 'm': 'm', 'n': 'n',
+			'o': '0', 'p': 'p', 'q': 'q', 'r': 'r', 's': '5', 't': '7', 'u': 'u',
+			'v': 'v', 'w': 'w', 'x': 'x', 'y': 'y', 'z': '2'
+		};
+
+		// Morse code map
+		const morseMap = {
+			'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.',
+			'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
+			'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.',
+			'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+			'Y': '-.--', 'Z': '--..', '0': '-----', '1': '.----', '2': '..---',
+			'3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...',
+			'8': '---..', '9': '----.', '.': '.-.-.-', ',': '--..--', '?': '..--..',
+			"'": '.----.', '!': '-.-.--', '/': '-..-.', '(': '-.--.', ')': '-.--.-',
+			'&': '.-...', ':': '---...', ';': '-.-.-.', '=': '-...-', '+': '.-.-.',
+			'-': '-....-', '_': '..--.-', '"': '.-..-.', '$': '...-..-', '@': '.--.-.'
+		};
+
+		const morseReverse = Object.fromEntries(
+			Object.entries(morseMap).map(([k, v]) => [v, k])
+		);
+
+		// NATO phonetic alphabet
+		const natoMap = {
+			'A': 'Alfa', 'B': 'Bravo', 'C': 'Charlie', 'D': 'Delta', 'E': 'Echo',
+			'F': 'Foxtrot', 'G': 'Golf', 'H': 'Hotel', 'I': 'India', 'J': 'Juliet',
+			'K': 'Kilo', 'L': 'Lima', 'M': 'Mike', 'N': 'November', 'O': 'Oscar',
+			'P': 'Papa', 'Q': 'Quebec', 'R': 'Romeo', 'S': 'Sierra', 'T': 'Tango',
+			'U': 'Uniform', 'V': 'Victor', 'W': 'Whiskey', 'X': 'X-ray', 'Y': 'Yankee',
+			'Z': 'Zulu', '0': 'Zero', '1': 'One', '2': 'Two', '3': 'Three',
+			'4': 'Four', '5': 'Five', '6': 'Six', '7': 'Seven', '8': 'Eight', '9': 'Nine'
+		};
+
+		const natoReverse = Object.fromEntries(
+			Object.entries(natoMap).map(([k, v]) => [v.toUpperCase(), k])
+		);
+
+		// Braille map
+		const brailleMap = {
+			'a': '⠁', 'b': '⠃', 'c': '⠉', 'd': '⠙', 'e': '⠑', 'f': '⠋', 'g': '⠛',
+			'h': '⠓', 'i': '⠊', 'j': '⠚', 'k': '⠅', 'l': '⠇', 'm': '⠍', 'n': '⠝',
+			'o': '⠕', 'p': '⠏', 'q': '⠟', 'r': '⠗', 's': '⠎', 't': '⠞', 'u': '⠥',
+			'v': '⠧', 'w': '⠺', 'x': '⠭', 'y': '⠽', 'z': '⠵', ' ': ' ',
+			'1': '⠼⠁', '2': '⠼⠃', '3': '⠼⠉', '4': '⠼⠙', '5': '⠼⠑',
+			'6': '⠼⠋', '7': '⠼⠛', '8': '⠼⠓', '9': '⠼⠊', '0': '⠼⠚'
+		};
+
+		const brailleReverse = Object.fromEntries(
+			Object.entries(brailleMap).map(([k, v]) => [v, k])
+		);
+
+		// Base32 alphabet
+		const base32Alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+		// Encoding functions
+		const encoders = {
+			'base64': (text) => btoa(unescape(encodeURIComponent(text))),
+
+			'base32': (text) => {
+				const bytes = new TextEncoder().encode(text);
+				let bits = '';
+				for (const byte of bytes) {
+					bits += byte.toString(2).padStart(8, '0');
+				}
+				while (bits.length % 5 !== 0) bits += '0';
+				let result = '';
+				for (let i = 0; i < bits.length; i += 5) {
+					result += base32Alphabet[parseInt(bits.slice(i, i + 5), 2)];
+				}
+				while (result.length % 8 !== 0) result += '=';
+				return result;
+			},
+
+			'hex': (text) => {
+				return Array.from(new TextEncoder().encode(text))
+					.map(b => b.toString(16).padStart(2, '0'))
+					.join(' ');
+			},
+
+			'binary': (text) => {
+				return Array.from(new TextEncoder().encode(text))
+					.map(b => b.toString(2).padStart(8, '0'))
+					.join(' ');
+			},
+
+			'octal': (text) => {
+				return Array.from(new TextEncoder().encode(text))
+					.map(b => b.toString(8).padStart(3, '0'))
+					.join(' ');
+			},
+
+			'decimal': (text) => {
+				return Array.from(new TextEncoder().encode(text))
+					.map(b => b.toString(10))
+					.join(' ');
+			},
+
+			'url': (text) => encodeURIComponent(text),
+
+			'html-named': (text) => {
+				return text.split('').map(c => htmlEntities[c] || c).join('');
+			},
+
+			'html-numeric': (text) => {
+				return text.split('').map(c => {
+					const code = c.charCodeAt(0);
+					return code > 127 || '<>&"\''.includes(c) ? `&#${code};` : c;
+				}).join('');
+			},
+
+			'punycode': (text) => {
+				try {
+					return new URL('http://' + text).hostname;
+				} catch {
+					return 'xn--' + text;
+				}
+			},
+
+			'unicode': (text) => {
+				return Array.from(text)
+					.map(c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'))
+					.join('');
+			},
+
+			'js-escape': (text) => {
+				return Array.from(new TextEncoder().encode(text))
+					.map(b => '\\x' + b.toString(16).padStart(2, '0'))
+					.join('');
+			},
+
+			'css-escape': (text) => {
+				return Array.from(text)
+					.map(c => '\\' + c.charCodeAt(0).toString(16).padStart(6, '0'))
+					.join('');
+			},
+
+			'utf8-bytes': (text) => {
+				return Array.from(new TextEncoder().encode(text))
+					.map(b => '0x' + b.toString(16).padStart(2, '0'))
+					.join(' ');
+			},
+
+			'utf16': (text) => {
+				return Array.from(text)
+					.map(c => 'U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'))
+					.join(' ');
+			},
+
+			'rot13': (text) => {
+				return text.replace(/[a-zA-Z]/g, c => {
+					const base = c <= 'Z' ? 65 : 97;
+					return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+				});
+			},
+
+			'rot47': (text) => {
+				return text.replace(/[!-~]/g, c => {
+					return String.fromCharCode((c.charCodeAt(0) - 33 + 47) % 94 + 33);
+				});
+			},
+
+			'caesar': (text) => {
+				const shift = parseInt(caesarShift.value);
+				return text.replace(/[a-zA-Z]/g, c => {
+					const base = c <= 'Z' ? 65 : 97;
+					return String.fromCharCode((c.charCodeAt(0) - base + shift) % 26 + base);
+				});
+			},
+
+			'atbash': (text) => {
+				return text.replace(/[a-zA-Z]/g, c => {
+					const base = c <= 'Z' ? 65 : 97;
+					return String.fromCharCode(base + 25 - (c.charCodeAt(0) - base));
+				});
+			},
+
+			'vigenere': (text) => {
+				const key = vigenereKey.value.toUpperCase();
+				if (!key) return text;
+				let keyIndex = 0;
+				return text.replace(/[a-zA-Z]/g, c => {
+					const base = c <= 'Z' ? 65 : 97;
+					const shift = key.charCodeAt(keyIndex % key.length) - 65;
+					keyIndex++;
+					return String.fromCharCode((c.charCodeAt(0) - base + shift) % 26 + base);
+				});
+			},
+
+			'pig-latin': (text) => {
+				return text.split(/\b/).map(word => {
+					if (!/^[a-zA-Z]+$/.test(word)) return word;
+					const vowels = 'aeiouAEIOU';
+					if (vowels.includes(word[0])) return word + 'way';
+					let consonants = '';
+					let rest = word;
+					while (rest.length && !vowels.includes(rest[0])) {
+						consonants += rest[0];
+						rest = rest.slice(1);
+					}
+					return rest + consonants.toLowerCase() + 'ay';
+				}).join('');
+			},
+
+			'reverse': (text) => text.split('').reverse().join(''),
+
+			'reverse-words': (text) => {
+				return text.split(' ').map(w => w.split('').reverse().join('')).join(' ');
+			},
+
+			'upside-down': (text) => {
+				return text.split('').map(c => upsideDownMap[c] || c).reverse().join('');
+			},
+
+			'leetspeak': (text) => {
+				return text.toLowerCase().split('').map(c => leetMap[c] || c).join('');
+			},
+
+			'nato': (text) => {
+				return text.toUpperCase().split('').map(c => {
+					if (c === ' ') return '/';
+					return natoMap[c] || c;
+				}).join(' ');
+			},
+
+			'alternating': (text) => {
+				let upper = true;
+				return text.split('').map(c => {
+					if (/[a-zA-Z]/.test(c)) {
+						const result = upper ? c.toUpperCase() : c.toLowerCase();
+						upper = !upper;
+						return result;
+					}
+					return c;
+				}).join('');
+			},
+
+			'md5': async (text) => await hashText(text, 'MD5'),
+			'sha1': async (text) => await hashText(text, 'SHA-1'),
+			'sha256': async (text) => await hashText(text, 'SHA-256'),
+			'sha512': async (text) => await hashText(text, 'SHA-512'),
+
+			'json-pretty': (text) => JSON.stringify(JSON.parse(text), null, 2),
+			'json-minify': (text) => JSON.stringify(JSON.parse(text)),
+
+			'xml-escape': (text) => {
+				return text.replace(/[<>&'"]/g, c => ({
+					'<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;'
+				})[c]);
+			},
+
+			'regex-escape': (text) => {
+				return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			},
+
+			'jwt-decode': (text) => text, // JWT is decode-only
+
+			'quoted-printable': (text) => {
+				return Array.from(new TextEncoder().encode(text))
+					.map(b => b > 126 || b < 32 || b === 61 ? '=' + b.toString(16).toUpperCase().padStart(2, '0') : String.fromCharCode(b))
+					.join('');
+			},
+
+			'uuencode': (text) => {
+				const bytes = new TextEncoder().encode(text);
+				let result = 'begin 644 data\n';
+				for (let i = 0; i < bytes.length; i += 45) {
+					const chunk = bytes.slice(i, i + 45);
+					result += String.fromCharCode(chunk.length + 32);
+					for (let j = 0; j < chunk.length; j += 3) {
+						const b1 = chunk[j] || 0;
+						const b2 = chunk[j + 1] || 0;
+						const b3 = chunk[j + 2] || 0;
+						result += String.fromCharCode(
+							((b1 >> 2) & 0x3f) + 32,
+							(((b1 << 4) | (b2 >> 4)) & 0x3f) + 32,
+							(((b2 << 2) | (b3 >> 6)) & 0x3f) + 32,
+							(b3 & 0x3f) + 32
+						);
+					}
+					result += '\n';
+				}
+				result += '`\nend';
+				return result;
+			},
+
+			'morse': (text) => {
+				return text.toUpperCase().split('').map(c => {
+					if (c === ' ') return '/';
+					return morseMap[c] || c;
+				}).join(' ');
+			},
+
+			'roman': (text) => {
+				const nums = text.match(/\d+/g);
+				if (!nums) return text;
+				let result = text;
+				for (const num of nums) {
+					result = result.replace(num, toRoman(parseInt(num)));
+				}
+				return result;
+			},
+
+			'braille': (text) => {
+				return text.toLowerCase().split('').map(c => brailleMap[c] || c).join('');
+			}
+		};
+
+		// Decoding functions
+		const decoders = {
+			'base64': (text) => decodeURIComponent(escape(atob(text.trim()))),
+
+			'base32': (text) => {
+				const cleaned = text.replace(/=+$/, '').toUpperCase();
+				let bits = '';
+				for (const c of cleaned) {
+					const val = base32Alphabet.indexOf(c);
+					if (val === -1) continue;
+					bits += val.toString(2).padStart(5, '0');
+				}
+				const bytes = [];
+				for (let i = 0; i + 8 <= bits.length; i += 8) {
+					bytes.push(parseInt(bits.slice(i, i + 8), 2));
+				}
+				return new TextDecoder().decode(new Uint8Array(bytes));
+			},
+
+			'hex': (text) => {
+				const bytes = text.trim().split(/\s+/).map(h => parseInt(h, 16));
+				return new TextDecoder().decode(new Uint8Array(bytes));
+			},
+
+			'binary': (text) => {
+				const bytes = text.trim().split(/\s+/).map(b => parseInt(b, 2));
+				return new TextDecoder().decode(new Uint8Array(bytes));
+			},
+
+			'octal': (text) => {
+				const bytes = text.trim().split(/\s+/).map(o => parseInt(o, 8));
+				return new TextDecoder().decode(new Uint8Array(bytes));
+			},
+
+			'decimal': (text) => {
+				const bytes = text.trim().split(/\s+/).map(d => parseInt(d, 10));
+				return new TextDecoder().decode(new Uint8Array(bytes));
+			},
+
+			'url': (text) => decodeURIComponent(text),
+
+			'html-named': (text) => {
+				let result = text;
+				for (const [entity, char] of Object.entries(htmlEntitiesReverse)) {
+					result = result.split(entity).join(char);
+				}
+				return result;
+			},
+
+			'html-numeric': (text) => {
+				return text.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)));
+			},
+
+			'punycode': (text) => {
+				try {
+					const url = new URL('http://' + text);
+					return url.hostname;
+				} catch {
+					return text.replace(/^xn--/, '');
+				}
+			},
+
+			'unicode': (text) => {
+				return text.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
+					String.fromCharCode(parseInt(hex, 16))
+				);
+			},
+
+			'js-escape': (text) => {
+				const bytes = [];
+				const matches = text.matchAll(/\\x([0-9a-fA-F]{2})/g);
+				for (const match of matches) {
+					bytes.push(parseInt(match[1], 16));
+				}
+				return new TextDecoder().decode(new Uint8Array(bytes));
+			},
+
+			'css-escape': (text) => {
+				return text.replace(/\\([0-9a-fA-F]{1,6})/g, (_, hex) =>
+					String.fromCharCode(parseInt(hex, 16))
+				);
+			},
+
+			'utf8-bytes': (text) => {
+				const bytes = text.trim().split(/\s+/).map(h => parseInt(h, 16));
+				return new TextDecoder().decode(new Uint8Array(bytes));
+			},
+
+			'utf16': (text) => {
+				return text.trim().split(/\s+/)
+					.map(u => String.fromCharCode(parseInt(u.replace('U+', ''), 16)))
+					.join('');
+			},
+
+			'rot13': (text) => encoders.rot13(text), // ROT13 is self-inverse
+			'rot47': (text) => encoders.rot47(text), // ROT47 is self-inverse
+			'atbash': (text) => encoders.atbash(text), // Atbash is self-inverse
+
+			'caesar': (text) => {
+				const shift = 26 - parseInt(caesarShift.value);
+				return text.replace(/[a-zA-Z]/g, c => {
+					const base = c <= 'Z' ? 65 : 97;
+					return String.fromCharCode((c.charCodeAt(0) - base + shift) % 26 + base);
+				});
+			},
+
+			'vigenere': (text) => {
+				const key = vigenereKey.value.toUpperCase();
+				if (!key) return text;
+				let keyIndex = 0;
+				return text.replace(/[a-zA-Z]/g, c => {
+					const base = c <= 'Z' ? 65 : 97;
+					const shift = key.charCodeAt(keyIndex % key.length) - 65;
+					keyIndex++;
+					return String.fromCharCode((c.charCodeAt(0) - base - shift + 26) % 26 + base);
+				});
+			},
+
+			'pig-latin': (text) => {
+				return text.split(/\b/).map(word => {
+					if (word.endsWith('way')) {
+						return word.slice(0, -3);
+					}
+					if (word.endsWith('ay')) {
+						const match = word.match(/^(.+?)([bcdfghjklmnpqrstvwxyz]+)ay$/i);
+						if (match) return match[2] + match[1];
+					}
+					return word;
+				}).join('');
+			},
+
+			'reverse': (text) => text.split('').reverse().join(''),
+			'reverse-words': (text) => encoders['reverse-words'](text),
+
+			'upside-down': (text) => {
+				return text.split('').reverse().map(c => upsideDownReverse[c] || c).join('');
+			},
+
+			'leetspeak': (text) => {
+				const reverseLeet = Object.fromEntries(
+					Object.entries(leetMap).map(([k, v]) => [v, k])
+				);
+				return text.split('').map(c => reverseLeet[c] || c).join('');
+			},
+
+			'nato': (text) => {
+				return text.split(' ').map(word => {
+					if (word === '/') return ' ';
+					return natoReverse[word.toUpperCase()] || word;
+				}).join('');
+			},
+
+			'alternating': (text) => text.toLowerCase(),
+
+			'json-pretty': (text) => JSON.stringify(JSON.parse(text)),
+			'json-minify': (text) => JSON.stringify(JSON.parse(text), null, 2),
+
+			'xml-escape': (text) => {
+				return text
+					.replace(/&lt;/g, '<')
+					.replace(/&gt;/g, '>')
+					.replace(/&amp;/g, '&')
+					.replace(/&apos;/g, "'")
+					.replace(/&quot;/g, '"');
+			},
+
+			'regex-escape': (text) => {
+				return text.replace(/\\([.*+?^${}()|[\]\\])/g, '$1');
+			},
+
+			'jwt-decode': (text) => {
+				const parts = text.split('.');
+				if (parts.length !== 3) throw new Error('Invalid JWT format');
+				const header = JSON.parse(atob(parts[0]));
+				const payload = JSON.parse(atob(parts[1]));
+				return JSON.stringify({ header, payload }, null, 2);
+			},
+
+			'quoted-printable': (text) => {
+				return text.replace(/=([0-9A-Fa-f]{2})/g, (_, hex) =>
+					String.fromCharCode(parseInt(hex, 16))
+				);
+			},
+
+			'uuencode': (text) => {
+				const lines = text.split('\n').filter(l => !l.startsWith('begin') && !l.startsWith('end') && l !== '`');
+				let bytes = [];
+				for (const line of lines) {
+					if (!line) continue;
+					const len = line.charCodeAt(0) - 32;
+					for (let i = 1; i < line.length; i += 4) {
+						const c1 = (line.charCodeAt(i) - 32) & 0x3f;
+						const c2 = (line.charCodeAt(i + 1) - 32) & 0x3f;
+						const c3 = (line.charCodeAt(i + 2) - 32) & 0x3f;
+						const c4 = (line.charCodeAt(i + 3) - 32) & 0x3f;
+						bytes.push((c1 << 2) | (c2 >> 4));
+						bytes.push(((c2 & 0xf) << 4) | (c3 >> 2));
+						bytes.push(((c3 & 0x3) << 6) | c4);
+					}
+					bytes = bytes.slice(0, bytes.length - (3 - len % 3) % 3);
+				}
+				return new TextDecoder().decode(new Uint8Array(bytes));
+			},
+
+			'morse': (text) => {
+				return text.split(' ').map(code => {
+					if (code === '/') return ' ';
+					return morseReverse[code] || code;
+				}).join('');
+			},
+
+			'roman': (text) => {
+				const romans = text.match(/[IVXLCDM]+/gi);
+				if (!romans) return text;
+				let result = text;
+				for (const roman of romans) {
+					result = result.replace(roman, fromRoman(roman.toUpperCase()));
+				}
+				return result;
+			},
+
+			'braille': (text) => {
+				return text.split('').map(c => brailleReverse[c] || c).join('');
+			}
+		};
+
+		// Helper: Hash function using Web Crypto API
+		async function hashText(text, algorithm) {
+			// MD5 not supported by Web Crypto, use simple implementation
+			if (algorithm === 'MD5') {
+				return md5(text);
+			}
+			const encoder = new TextEncoder();
+			const data = encoder.encode(text);
+			const hashBuffer = await crypto.subtle.digest(algorithm, data);
+			const hashArray = Array.from(new Uint8Array(hashBuffer));
+			return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+		}
+
+		// Simple MD5 implementation
+		function md5(string) {
+			function rotateLeft(x, n) { return (x << n) | (x >>> (32 - n)); }
+			function addUnsigned(x, y) {
+				const x8 = x & 0x80000000, y8 = y & 0x80000000;
+				const x4 = x & 0x40000000, y4 = y & 0x40000000;
+				const result = (x & 0x3FFFFFFF) + (y & 0x3FFFFFFF);
+				if (x4 & y4) return result ^ 0x80000000 ^ x8 ^ y8;
+				if (x4 | y4) {
+					if (result & 0x40000000) return result ^ 0xC0000000 ^ x8 ^ y8;
+					return result ^ 0x40000000 ^ x8 ^ y8;
+				}
+				return result ^ x8 ^ y8;
+			}
+			function F(x, y, z) { return (x & y) | ((~x) & z); }
+			function G(x, y, z) { return (x & z) | (y & (~z)); }
+			function H(x, y, z) { return x ^ y ^ z; }
+			function I(x, y, z) { return y ^ (x | (~z)); }
+			function FF(a, b, c, d, x, s, ac) { a = addUnsigned(a, addUnsigned(addUnsigned(F(b, c, d), x), ac)); return addUnsigned(rotateLeft(a, s), b); }
+			function GG(a, b, c, d, x, s, ac) { a = addUnsigned(a, addUnsigned(addUnsigned(G(b, c, d), x), ac)); return addUnsigned(rotateLeft(a, s), b); }
+			function HH(a, b, c, d, x, s, ac) { a = addUnsigned(a, addUnsigned(addUnsigned(H(b, c, d), x), ac)); return addUnsigned(rotateLeft(a, s), b); }
+			function II(a, b, c, d, x, s, ac) { a = addUnsigned(a, addUnsigned(addUnsigned(I(b, c, d), x), ac)); return addUnsigned(rotateLeft(a, s), b); }
+			function convertToWordArray(str) {
+				const len = str.length;
+				const numWords = (((len + 8) >> 6) + 1) << 4;
+				const words = Array(numWords - 1).fill(0);
+				let pos = 0;
+				for (let i = 0; i < len; i++) {
+					pos = (i >> 2);
+					words[pos] |= str.charCodeAt(i) << ((i % 4) << 3);
+				}
+				words[pos] = words[pos] | (0x80 << ((len % 4) << 3));
+				words[numWords - 2] = len << 3;
+				return words;
+			}
+			function wordToHex(val) {
+				let hex = '', temp;
+				for (let i = 0; i <= 3; i++) {
+					temp = (val >> (i << 3)) & 255;
+					hex += ('0' + temp.toString(16)).slice(-2);
+				}
+				return hex;
+			}
+			const x = convertToWordArray(string);
+			let a = 0x67452301, b = 0xEFCDAB89, c = 0x98BADCFE, d = 0x10325476;
+			const S = [[7, 12, 17, 22], [5, 9, 14, 20], [4, 11, 16, 23], [6, 10, 15, 21]];
+			const T = [
+				0xD76AA478, 0xE8C7B756, 0x242070DB, 0xC1BDCEEE, 0xF57C0FAF, 0x4787C62A, 0xA8304613, 0xFD469501,
+				0x698098D8, 0x8B44F7AF, 0xFFFF5BB1, 0x895CD7BE, 0x6B901122, 0xFD987193, 0xA679438E, 0x49B40821,
+				0xF61E2562, 0xC040B340, 0x265E5A51, 0xE9B6C7AA, 0xD62F105D, 0x02441453, 0xD8A1E681, 0xE7D3FBC8,
+				0x21E1CDE6, 0xC33707D6, 0xF4D50D87, 0x455A14ED, 0xA9E3E905, 0xFCEFA3F8, 0x676F02D9, 0x8D2A4C8A,
+				0xFFFA3942, 0x8771F681, 0x6D9D6122, 0xFDE5380C, 0xA4BEEA44, 0x4BDECFA9, 0xF6BB4B60, 0xBEBFBC70,
+				0x289B7EC6, 0xEAA127FA, 0xD4EF3085, 0x04881D05, 0xD9D4D039, 0xE6DB99E5, 0x1FA27CF8, 0xC4AC5665,
+				0xF4292244, 0x432AFF97, 0xAB9423A7, 0xFC93A039, 0x655B59C3, 0x8F0CCC92, 0xFFEFF47D, 0x85845DD1,
+				0x6FA87E4F, 0xFE2CE6E0, 0xA3014314, 0x4E0811A1, 0xF7537E82, 0xBD3AF235, 0x2AD7D2BB, 0xEB86D391
+			];
+			for (let k = 0; k < x.length; k += 16) {
+				const AA = a, BB = b, CC = c, DD = d;
+				a = FF(a, b, c, d, x[k + 0], S[0][0], T[0]); d = FF(d, a, b, c, x[k + 1], S[0][1], T[1]);
+				c = FF(c, d, a, b, x[k + 2], S[0][2], T[2]); b = FF(b, c, d, a, x[k + 3], S[0][3], T[3]);
+				a = FF(a, b, c, d, x[k + 4], S[0][0], T[4]); d = FF(d, a, b, c, x[k + 5], S[0][1], T[5]);
+				c = FF(c, d, a, b, x[k + 6], S[0][2], T[6]); b = FF(b, c, d, a, x[k + 7], S[0][3], T[7]);
+				a = FF(a, b, c, d, x[k + 8], S[0][0], T[8]); d = FF(d, a, b, c, x[k + 9], S[0][1], T[9]);
+				c = FF(c, d, a, b, x[k + 10], S[0][2], T[10]); b = FF(b, c, d, a, x[k + 11], S[0][3], T[11]);
+				a = FF(a, b, c, d, x[k + 12], S[0][0], T[12]); d = FF(d, a, b, c, x[k + 13], S[0][1], T[13]);
+				c = FF(c, d, a, b, x[k + 14], S[0][2], T[14]); b = FF(b, c, d, a, x[k + 15], S[0][3], T[15]);
+				a = GG(a, b, c, d, x[k + 1], S[1][0], T[16]); d = GG(d, a, b, c, x[k + 6], S[1][1], T[17]);
+				c = GG(c, d, a, b, x[k + 11], S[1][2], T[18]); b = GG(b, c, d, a, x[k + 0], S[1][3], T[19]);
+				a = GG(a, b, c, d, x[k + 5], S[1][0], T[20]); d = GG(d, a, b, c, x[k + 10], S[1][1], T[21]);
+				c = GG(c, d, a, b, x[k + 15], S[1][2], T[22]); b = GG(b, c, d, a, x[k + 4], S[1][3], T[23]);
+				a = GG(a, b, c, d, x[k + 9], S[1][0], T[24]); d = GG(d, a, b, c, x[k + 14], S[1][1], T[25]);
+				c = GG(c, d, a, b, x[k + 3], S[1][2], T[26]); b = GG(b, c, d, a, x[k + 8], S[1][3], T[27]);
+				a = GG(a, b, c, d, x[k + 13], S[1][0], T[28]); d = GG(d, a, b, c, x[k + 2], S[1][1], T[29]);
+				c = GG(c, d, a, b, x[k + 7], S[1][2], T[30]); b = GG(b, c, d, a, x[k + 12], S[1][3], T[31]);
+				a = HH(a, b, c, d, x[k + 5], S[2][0], T[32]); d = HH(d, a, b, c, x[k + 8], S[2][1], T[33]);
+				c = HH(c, d, a, b, x[k + 11], S[2][2], T[34]); b = HH(b, c, d, a, x[k + 14], S[2][3], T[35]);
+				a = HH(a, b, c, d, x[k + 1], S[2][0], T[36]); d = HH(d, a, b, c, x[k + 4], S[2][1], T[37]);
+				c = HH(c, d, a, b, x[k + 7], S[2][2], T[38]); b = HH(b, c, d, a, x[k + 10], S[2][3], T[39]);
+				a = HH(a, b, c, d, x[k + 13], S[2][0], T[40]); d = HH(d, a, b, c, x[k + 0], S[2][1], T[41]);
+				c = HH(c, d, a, b, x[k + 3], S[2][2], T[42]); b = HH(b, c, d, a, x[k + 6], S[2][3], T[43]);
+				a = HH(a, b, c, d, x[k + 9], S[2][0], T[44]); d = HH(d, a, b, c, x[k + 12], S[2][1], T[45]);
+				c = HH(c, d, a, b, x[k + 15], S[2][2], T[46]); b = HH(b, c, d, a, x[k + 2], S[2][3], T[47]);
+				a = II(a, b, c, d, x[k + 0], S[3][0], T[48]); d = II(d, a, b, c, x[k + 7], S[3][1], T[49]);
+				c = II(c, d, a, b, x[k + 14], S[3][2], T[50]); b = II(b, c, d, a, x[k + 5], S[3][3], T[51]);
+				a = II(a, b, c, d, x[k + 12], S[3][0], T[52]); d = II(d, a, b, c, x[k + 3], S[3][1], T[53]);
+				c = II(c, d, a, b, x[k + 10], S[3][2], T[54]); b = II(b, c, d, a, x[k + 1], S[3][3], T[55]);
+				a = II(a, b, c, d, x[k + 8], S[3][0], T[56]); d = II(d, a, b, c, x[k + 15], S[3][1], T[57]);
+				c = II(c, d, a, b, x[k + 6], S[3][2], T[58]); b = II(b, c, d, a, x[k + 13], S[3][3], T[59]);
+				a = II(a, b, c, d, x[k + 4], S[3][0], T[60]); d = II(d, a, b, c, x[k + 11], S[3][1], T[61]);
+				c = II(c, d, a, b, x[k + 2], S[3][2], T[62]); b = II(b, c, d, a, x[k + 9], S[3][3], T[63]);
+				a = addUnsigned(a, AA); b = addUnsigned(b, BB); c = addUnsigned(c, CC); d = addUnsigned(d, DD);
+			}
+			return wordToHex(a) + wordToHex(b) + wordToHex(c) + wordToHex(d);
+		}
+
+		// Roman numeral conversion
+		function toRoman(num) {
+			if (num < 1 || num > 3999) return num.toString();
+			const vals = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+			const syms = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+			let result = '';
+			for (let i = 0; i < vals.length; i++) {
+				while (num >= vals[i]) {
+					result += syms[i];
+					num -= vals[i];
+				}
+			}
+			return result;
+		}
+
+		function fromRoman(str) {
+			const map = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+			let result = 0;
+			for (let i = 0; i < str.length; i++) {
+				const curr = map[str[i]];
+				const next = map[str[i + 1]];
+				if (next && curr < next) {
+					result -= curr;
+				} else {
+					result += curr;
+				}
+			}
+			return result;
+		}
+
+		// Show status message
+		function showStatus(message, isError = false) {
+			statusEl.textContent = message;
+			statusEl.className = 'status ' + (isError ? 'error' : 'success');
+			setTimeout(() => { statusEl.className = 'status'; }, 3000);
+		}
+
+		// Encode button handler
+		encodeBtn.addEventListener('click', async () => {
+			const text = textArea.value;
+			const format = formatSelect.value;
+
+			if (!text) {
+				showStatus('Please enter some text', true);
+				return;
+			}
+
+			try {
+				const encoder = encoders[format];
+				const result = await Promise.resolve(encoder(text));
+				textArea.value = result;
+				showStatus('Encoded successfully');
+				textArea.focus();
+			} catch (err) {
+				showStatus('Encoding error: ' + err.message, true);
+				textArea.focus();
+			}
+		});
+
+		// Decode button handler
+		decodeBtn.addEventListener('click', async () => {
+			const text = textArea.value;
+			const format = formatSelect.value;
+
+			if (!text) {
+				showStatus('Please enter some text', true);
+				return;
+			}
+
+			try {
+				const decoder = decoders[format];
+				const result = await Promise.resolve(decoder(text));
+				textArea.value = result;
+				showStatus('Decoded successfully');
+				textArea.focus();
+			} catch (err) {
+				showStatus('Decoding error: ' + err.message, true);
+				textArea.focus();
+			}
+		});
+
+		// Copy button handler
+		copyBtn.addEventListener('click', async () => {
+			try {
+				await navigator.clipboard.writeText(textArea.value);
+				showStatus('Copied to clipboard');
+			} catch {
+				showStatus('Failed to copy', true);
+			}
+		});
+
+		// Clear button handler
+		clearBtn.addEventListener('click', () => {
+			textArea.value = '';
+			statusEl.className = 'status';
+		});
+	</script>
+</body>
+</html>
