@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Screen Reader Detector</title>
+	<style>
+		body {
+			font-family: system-ui, sans-serif;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			min-height: 100vh;
+			margin: 0;
+			padding: 1rem;
+			box-sizing: border-box;
+		}
+		#detect {
+			font-size: 2rem;
+			padding: 2rem 4rem;
+			cursor: pointer;
+		}
+		#result {
+			font-size: 1.5rem;
+			margin-top: 2rem;
+			text-align: center;
+		}
+	</style>
+</head>
+<body>
+	<button id="detect">Detect Screen Reader</button>
+	<div id="result" aria-live="polite"></div>
+
+	<script>
+	document.getElementById('detect').addEventListener('click', function() {
+		var result = document.getElementById('result');
+		var hints = [];
+
+		// 1. Check for forced-colors / high contrast mode
+		if (window.matchMedia('(forced-colors: active)').matches) {
+			hints.push('forced-colors');
+		}
+
+		// 2. Check for prefers-reduced-motion
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			hints.push('reduced-motion');
+		}
+
+		// 3. Scan all window properties for screen reader artifacts
+		var srKeywords = ['jaws', 'nvda', 'voiceover', 'narrator', 'orca', 'talkback', 'accessibility', 'a11y', 'screen_reader'];
+		for (var prop in window) {
+			var propLower = prop.toLowerCase();
+			for (var i = 0; i < srKeywords.length; i++) {
+				if (propLower.includes(srKeywords[i])) {
+					hints.push('window.' + prop);
+				}
+			}
+		}
+
+		// 4. Check for injected scripts
+		var scripts = document.getElementsByTagName('script');
+		for (var i = 0; i < scripts.length; i++) {
+			var src = (scripts[i].src || '').toLowerCase();
+			for (var j = 0; j < srKeywords.length; j++) {
+				if (src.includes(srKeywords[j])) {
+					hints.push('script: ' + src);
+				}
+			}
+		}
+
+		// 5. Check navigator properties
+		if (navigator.accessibilityEnabled) {
+			hints.push('navigator.accessibilityEnabled');
+		}
+
+		// 6. Firefox-specific: check for accessibility service
+		try {
+			if (typeof Components !== 'undefined' && Components.classes) {
+				hints.push('Components.classes available');
+			}
+		} catch (e) {}
+
+		// 7. Check for ATK (Linux accessibility toolkit) bridges
+		if (typeof window.ATK !== 'undefined') {
+			hints.push('ATK bridge');
+		}
+
+		// 8. Check for MSAA/UIA indicators (Windows)
+		if (typeof window.UIAutomation !== 'undefined') {
+			hints.push('UIAutomation');
+		}
+
+		// 9. Enumerate document properties for injections
+		var docProps = Object.getOwnPropertyNames(document);
+		for (var i = 0; i < docProps.length; i++) {
+			var propLower = docProps[i].toLowerCase();
+			for (var j = 0; j < srKeywords.length; j++) {
+				if (propLower.includes(srKeywords[j])) {
+					hints.push('document.' + docProps[i]);
+				}
+			}
+		}
+
+		// 10. Check for accessibility-related CSS custom properties
+		var styles = getComputedStyle(document.documentElement);
+		for (var i = 0; i < styles.length; i++) {
+			if (styles[i].includes('accessibility') || styles[i].includes('a11y')) {
+				hints.push('CSS: ' + styles[i]);
+			}
+		}
+
+		if (hints.length > 0) {
+			result.textContent = 'Screen reader appears to be running\nHints: ' + hints.join(', ');
+		} else {
+			result.textContent = 'No screen reader appears to be running';
+		}
+	});
+	</script>
+</body>
+</html>
