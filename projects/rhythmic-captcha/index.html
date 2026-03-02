@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Rhythmic Captcha</title>
+	<style>
+		*, *::before, *::after {
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: system-ui, -apple-system, sans-serif;
+			max-width: 600px;
+			margin: 2rem auto;
+			padding: 0 1rem;
+			background: #1a1a2e;
+			color: #e0e0e0;
+		}
+
+		h1 {
+			text-align: center;
+			color: #e94560;
+		}
+
+		.instructions {
+			text-align: center;
+			margin-bottom: 1.5rem;
+			line-height: 1.5;
+		}
+
+		fieldset {
+			border: 1px solid #444;
+			border-radius: 8px;
+			padding: 1rem;
+			margin-bottom: 1.5rem;
+		}
+
+		legend {
+			font-weight: bold;
+			padding: 0 0.5rem;
+		}
+
+		.difficulty-options {
+			display: flex;
+			gap: 1.5rem;
+			justify-content: center;
+		}
+
+		.difficulty-options label {
+			cursor: pointer;
+			padding: 0.5rem 1rem;
+			border: 2px solid #444;
+			border-radius: 6px;
+			transition: border-color 0.2s, background 0.2s;
+		}
+
+		.difficulty-options label:has(input:checked) {
+			border-color: #e94560;
+			background: rgba(233, 69, 96, 0.15);
+		}
+
+		.difficulty-options input[type="radio"] {
+			margin-right: 0.4rem;
+		}
+
+		button {
+			display: block;
+			margin: 1rem auto;
+			padding: 0.75rem 2rem;
+			font-size: 1.1rem;
+			border: none;
+			border-radius: 8px;
+			cursor: pointer;
+			font-weight: bold;
+			transition: background 0.2s, opacity 0.2s;
+		}
+
+		button:disabled {
+			opacity: 0.4;
+			cursor: not-allowed;
+		}
+
+		#play-btn {
+			background: #e94560;
+			color: white;
+		}
+
+		#play-btn:hover:not(:disabled) {
+			background: #c73650;
+		}
+
+		.button-row {
+			display: flex;
+			gap: 1rem;
+			justify-content: center;
+		}
+
+		.button-row button {
+			margin: 1rem 0;
+		}
+
+		#replay-btn {
+			background: #16213e;
+			color: white;
+		}
+
+		#replay-btn:hover:not(:disabled) {
+			background: #1a2744;
+		}
+
+		#metronome {
+			width: 12px;
+			height: 12px;
+			border-radius: 50%;
+			background: #444;
+			margin: 0 auto 0.5rem;
+			transition: background 0.05s, transform 0.05s;
+		}
+
+		#metronome.pulse {
+			background: #e94560;
+			transform: scale(1.5);
+		}
+
+		#tap-area {
+			border: 3px dashed #444;
+			border-radius: 12px;
+			padding: 2rem;
+			text-align: center;
+			margin: 1.5rem 0;
+			min-height: 120px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			transition: border-color 0.2s, background 0.2s;
+			outline: none;
+		}
+
+		#tap-area:focus {
+			border-color: #e94560;
+			background: rgba(233, 69, 96, 0.05);
+		}
+
+		#tap-area.tapping {
+			border-color: #e94560;
+		}
+
+		#tap-area .tap-flash {
+			width: 60px;
+			height: 60px;
+			border-radius: 50%;
+			background: #e94560;
+			opacity: 0;
+			transition: opacity 0.05s;
+			margin-bottom: 1rem;
+		}
+
+		#tap-area .tap-flash.active {
+			opacity: 1;
+			transition: opacity 0s;
+		}
+
+		#tap-area .tap-count {
+			font-size: 1.2rem;
+			color: #aaa;
+		}
+
+		#submit-btn {
+			background: #0f3460;
+			color: white;
+		}
+
+		#submit-btn:hover:not(:disabled) {
+			background: #0a2540;
+		}
+
+		#status {
+			text-align: center;
+			padding: 1rem;
+			font-size: 1.1rem;
+			min-height: 3rem;
+		}
+
+		.status-success {
+			color: #4ecca3;
+			font-weight: bold;
+		}
+
+		.status-fail {
+			color: #e94560;
+			font-weight: bold;
+		}
+
+		.status-info {
+			color: #aaa;
+		}
+
+		.sr-only {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
+	</style>
+</head>
+<body>
+	<h1>Rhythmic Captcha</h1>
+	<p class="instructions">Listen to the rhythm, then tap it back using the spacebar. Press Enter when you're done, or R to replay.</p>
+
+	<fieldset id="difficulty-fieldset">
+		<legend>Select Difficulty</legend>
+		<div class="difficulty-options">
+			<label>
+				<input type="radio" name="difficulty" value="easy" checked>
+				Easy
+			</label>
+			<label>
+				<input type="radio" name="difficulty" value="medium">
+				Medium
+			</label>
+			<label>
+				<input type="radio" name="difficulty" value="hard">
+				Hard
+			</label>
+		</div>
+	</fieldset>
+
+	<div class="button-row">
+		<button id="play-btn">Play Rhythm</button>
+		<button id="replay-btn" disabled>Replay (3)</button>
+	</div>
+
+	<div id="metronome" aria-hidden="true"></div>
+
+	<div id="tap-area" role="application" tabindex="0" aria-label="Rhythm tapping area. Press spacebar to tap beats, R to replay, press Enter when finished.">
+		<div class="tap-flash" aria-hidden="true"></div>
+		<div class="tap-count" aria-hidden="true"></div>
+	</div>
+
+	<button id="submit-btn" disabled>Submit</button>
+
+	<div id="status" aria-live="assertive" role="status"></div>
+
+	<script>
+		// --- Configuration ---
+		const DIFFICULTY = {
+			easy: {
+				bpm: [80, 100],
+				bars: 1,
+				subdivisions: [1, 2],
+				density: [0.4, 0.6],
+				tolerancePct: 0.35,
+				scoreThreshold: 0.65,
+			},
+			medium: {
+				bpm: [100, 130],
+				bars: 1,
+				subdivisions: [1, 2, 4],
+				density: [0.3, 0.5],
+				tolerancePct: 0.25,
+				scoreThreshold: 0.70,
+			},
+			hard: {
+				bpm: [120, 160],
+				bars: 1,
+				subdivisions: [1, 2, 4],
+				density: [0.3, 0.5],
+				tolerancePct: 0.20,
+				swing: [0, 0.3],
+				scoreThreshold: 0.75,
+			},
+		};
+
+		const PENTATONIC_FREQS = [
+			220, 261.63, 293.66, 349.23, 392,
+			440, 523.25, 587.33, 698.46, 783.99,
+		];
+
+		const SOUND_TYPES = ['melodic', 'click', 'kick'];
+
+		const MAX_REPLAYS = 3;
+		const MAX_ATTEMPTS = 3;
+		const BOT_JITTER_THRESHOLD = 15;
+
+		// --- State ---
+		const STATE = {
+			IDLE: 'IDLE',
+			PLAYING: 'PLAYING',
+			TAPPING: 'TAPPING',
+			EVALUATING: 'EVALUATING',
+		};
+
+		let currentState = STATE.IDLE;
+		let currentPattern = null;
+		let currentBpm = null;
+		let currentSubdivisionMs = null;
+		let userTaps = [];
+		let attemptCount = 0;
+		let replaysLeft = MAX_REPLAYS;
+		let audioCtx = null;
+		let metronomeInterval = null;
+
+		// --- DOM References ---
+		const playBtn = document.getElementById('play-btn');
+		const submitBtn = document.getElementById('submit-btn');
+		const replayBtn = document.getElementById('replay-btn');
+		const tapArea = document.getElementById('tap-area');
+		const tapFlash = tapArea.querySelector('.tap-flash');
+		const tapCount = tapArea.querySelector('.tap-count');
+		const statusEl = document.getElementById('status');
+		const difficultyFieldset = document.getElementById('difficulty-fieldset');
+		const metronomeEl = document.getElementById('metronome');
+
+		// --- Utility ---
+		function randInt(min, max) {
+			return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+
+		function randChoice(arr) {
+			return arr[Math.floor(Math.random() * arr.length)];
+		}
+
+		function getDifficulty() {
+			return document.querySelector('input[name="difficulty"]:checked').value;
+		}
+
+		function getConfig() {
+			return DIFFICULTY[getDifficulty()];
+		}
+
+		// --- State Transitions ---
+		function setState(newState) {
+			currentState = newState;
+
+			const isIdle = newState === STATE.IDLE;
+			const isTapping = newState === STATE.TAPPING;
+
+			playBtn.disabled = !isIdle;
+			submitBtn.disabled = !isTapping;
+			difficultyFieldset.disabled = !isIdle;
+
+			if (isTapping) {
+				tapArea.classList.add('tapping');
+				replayBtn.disabled = replaysLeft <= 0;
+			} else {
+				tapArea.classList.remove('tapping');
+				replayBtn.disabled = true;
+			}
+		}
+
+		function setStatus(message, type = 'info') {
+			statusEl.textContent = '';
+			requestAnimationFrame(() => {
+				statusEl.textContent = message;
+				statusEl.className = `status-${type}`;
+			});
+		}
+
+		// --- Audio Context Init ---
+		function ensureAudioCtx() {
+			if (!audioCtx) {
+				audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+			}
+			if (audioCtx.state === 'suspended') {
+				audioCtx.resume();
+			}
+			return audioCtx;
+		}
+
+		// --- Sound Synthesis ---
+		function playMelodicTone(freq) {
+			const ctx = ensureAudioCtx();
+			const osc = ctx.createOscillator();
+			const gain = ctx.createGain();
+
+			osc.type = Math.random() > 0.5 ? 'sine' : 'triangle';
+			osc.frequency.value = freq;
+
+			gain.gain.setValueAtTime(0, ctx.currentTime);
+			gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.01);
+			gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+
+			osc.connect(gain);
+			gain.connect(ctx.destination);
+
+			osc.start(ctx.currentTime);
+			osc.stop(ctx.currentTime + 0.15);
+		}
+
+		function playClick() {
+			const ctx = ensureAudioCtx();
+			const bufferSize = ctx.sampleRate * 0.04;
+			const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+			const data = buffer.getChannelData(0);
+
+			for (let i = 0; i < bufferSize; i++) {
+				data[i] = (Math.random() * 2 - 1);
+			}
+
+			const source = ctx.createBufferSource();
+			source.buffer = buffer;
+
+			const filter = ctx.createBiquadFilter();
+			filter.type = 'bandpass';
+			filter.frequency.value = 4000 + Math.random() * 4000;
+			filter.Q.value = 2;
+
+			const gain = ctx.createGain();
+			gain.gain.setValueAtTime(0.5, ctx.currentTime);
+			gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+
+			source.connect(filter);
+			filter.connect(gain);
+			gain.connect(ctx.destination);
+
+			source.start(ctx.currentTime);
+			source.stop(ctx.currentTime + 0.04);
+		}
+
+		function playKick() {
+			const ctx = ensureAudioCtx();
+			const osc = ctx.createOscillator();
+			const gain = ctx.createGain();
+
+			osc.type = 'sine';
+			osc.frequency.setValueAtTime(150, ctx.currentTime);
+			osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.1);
+
+			gain.gain.setValueAtTime(0.6, ctx.currentTime);
+			gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+			osc.connect(gain);
+			gain.connect(ctx.destination);
+
+			osc.start(ctx.currentTime);
+			osc.stop(ctx.currentTime + 0.12);
+		}
+
+		function playBeat(beat) {
+			switch (beat.type) {
+				case 'melodic':
+					playMelodicTone(beat.freq);
+					break;
+				case 'click':
+					playClick();
+					break;
+				case 'kick':
+					playKick();
+					break;
+			}
+		}
+
+		// --- Pattern Generation ---
+		function generatePattern() {
+			const config = getConfig();
+			const bpm = randInt(config.bpm[0], config.bpm[1]);
+			const beatMs = 60000 / bpm;
+			const maxSubdiv = Math.max(...config.subdivisions);
+			const subdivMs = beatMs / maxSubdiv;
+			const totalSlots = config.bars * 4 * maxSubdiv;
+			const density = config.density[0] + Math.random() * (config.density[1] - config.density[0]);
+			const swingAmount = config.swing
+				? config.swing[0] + Math.random() * (config.swing[1] - config.swing[0])
+				: 0;
+
+			// Choose one sound type for the whole pattern
+			const soundType = randChoice(SOUND_TYPES);
+			const freq = soundType === 'melodic' ? randChoice(PENTATONIC_FREQS) : undefined;
+
+			// Build grid: mark which slots get a hit
+			const grid = new Array(totalSlots).fill(false);
+
+			// Always hit beat 1
+			grid[0] = true;
+
+			// Fill remaining slots by density
+			for (let i = 1; i < totalSlots; i++) {
+				const isValidSubdiv = config.subdivisions.some((s) => (i % (maxSubdiv / s)) === 0);
+				if (isValidSubdiv && Math.random() < density) {
+					grid[i] = true;
+				}
+			}
+
+			// Enforce: at least 2 consecutive hits somewhere
+			let hasConsecutive = false;
+			for (let i = 0; i < grid.length - 1; i++) {
+				if (grid[i] && grid[i + 1]) {
+					hasConsecutive = true;
+					break;
+				}
+			}
+			if (!hasConsecutive) {
+				for (let i = 0; i < grid.length - 1; i++) {
+					if (grid[i]) {
+						grid[i + 1] = true;
+						break;
+					}
+				}
+			}
+
+			// Enforce: no gap longer than one beat (maxSubdiv slots)
+			let lastHit = 0;
+			for (let i = 1; i < grid.length; i++) {
+				if (grid[i]) {
+					lastHit = i;
+				} else if (i - lastHit >= maxSubdiv) {
+					grid[i] = true;
+					lastHit = i;
+				}
+			}
+
+			// Ensure minimum beat count (at least 3)
+			const hitCount = grid.filter(Boolean).length;
+			if (hitCount < 3) {
+				for (let i = 1; i < grid.length && grid.filter(Boolean).length < 3; i++) {
+					if (!grid[i]) grid[i] = true;
+				}
+			}
+
+			// Convert grid to beat objects with timestamps
+			const beats = [];
+			for (let i = 0; i < grid.length; i++) {
+				if (!grid[i]) continue;
+
+				let time = i * subdivMs;
+
+				// Apply swing to offbeat subdivisions
+				if (swingAmount > 0 && i % 2 === 1) {
+					time += subdivMs * swingAmount;
+				}
+
+				const beat = { type: soundType, time: Math.round(time) };
+				if (soundType === 'melodic') {
+					beat.freq = freq;
+				}
+				beats.push(beat);
+			}
+
+			// Store tempo info for scoring
+			currentBpm = bpm;
+			currentSubdivisionMs = subdivMs;
+
+			return beats;
+		}
+
+		// --- Playback ---
+		function playPattern(pattern) {
+			return new Promise((resolve) => {
+				setState(STATE.PLAYING);
+				setStatus('Playing rhythm...', 'info');
+
+				pattern.forEach((beat) => {
+					setTimeout(() => playBeat(beat), beat.time);
+				});
+
+				const lastBeat = pattern[pattern.length - 1];
+				setTimeout(() => {
+					resolve();
+				}, lastBeat.time + 300);
+			});
+		}
+
+		// --- Scoring ---
+		function evaluateAttempt() {
+			if (userTaps.length === 0) {
+				setStatus('You need to tap the rhythm first!', 'fail');
+				return;
+			}
+
+			setState(STATE.EVALUATING);
+			const config = getConfig();
+			const subdivMs = currentSubdivisionMs;
+
+			// Beat count must match exactly
+			if (userTaps.length !== currentPattern.length) {
+				handleFailure(`Wrong number of beats. Expected ${currentPattern.length}, got ${userTaps.length}.`);
+				return;
+			}
+
+			// Normalize both sequences (first beat = 0)
+			const patternTimes = currentPattern.map((b) => b.time - currentPattern[0].time);
+			const tapStart = userTaps[0];
+			const tapTimes = userTaps.map((t) => t - tapStart);
+
+			// Compute per-beat errors
+			const errors = [];
+			for (let i = 1; i < patternTimes.length; i++) {
+				errors.push(Math.abs(tapTimes[i] - patternTimes[i]));
+			}
+
+			// Anti-bot: check if timing is suspiciously perfect
+			if (errors.length >= 2) {
+				const mean = errors.reduce((a, b) => a + b, 0) / errors.length;
+				const variance = errors.reduce((a, e) => a + (e - mean) ** 2, 0) / errors.length;
+				const stdDev = Math.sqrt(variance);
+
+				if (stdDev < BOT_JITTER_THRESHOLD && mean < BOT_JITTER_THRESHOLD) {
+					handleFailure('Timing pattern detected as non-human. Please try again naturally.');
+					return;
+				}
+			}
+
+			// Aggregate score: 1 - (avgError / subdivisionDuration)
+			const avgError = errors.length > 0
+				? errors.reduce((a, b) => a + b, 0) / errors.length
+				: 0;
+			const score = Math.max(0, 1 - (avgError / subdivMs));
+
+			if (score >= config.scoreThreshold) {
+				setState(STATE.IDLE);
+				const pct = Math.round(score * 100);
+				setStatus(`Correct! Captcha solved. (Rhythm accuracy: ${pct}%)`, 'success');
+				currentPattern = null;
+				userTaps = [];
+				attemptCount = 0;
+				replaysLeft = MAX_REPLAYS;
+				tapCount.textContent = '';
+				stopMetronome();
+			} else {
+				const pct = Math.round(score * 100);
+				const needed = Math.round(config.scoreThreshold * 100);
+				handleFailure(`Rhythm accuracy: ${pct}% (need ${needed}%). Try to match the timing more closely.`);
+			}
+		}
+
+		async function handleFailure(reason) {
+			attemptCount++;
+
+			if (attemptCount >= MAX_ATTEMPTS) {
+				setStatus(`${reason} Generating a new pattern...`, 'fail');
+				attemptCount = 0;
+				replaysLeft = MAX_REPLAYS;
+				userTaps = [];
+				tapCount.textContent = '';
+				stopMetronome();
+
+				await new Promise((r) => setTimeout(r, 1500));
+
+				currentPattern = generatePattern();
+				await playPattern(currentPattern);
+
+				setState(STATE.TAPPING);
+				updateReplayBtn();
+				setStatus('New rhythm! Tap the spacebar to repeat it. Press Enter when done.', 'info');
+				tapArea.focus();
+				startMetronome();
+			} else {
+				setStatus(`${reason} Listen again... (Attempt ${attemptCount}/${MAX_ATTEMPTS})`, 'fail');
+				userTaps = [];
+				tapCount.textContent = '';
+				stopMetronome();
+
+				await new Promise((r) => setTimeout(r, 1500));
+
+				await playPattern(currentPattern);
+
+				setState(STATE.TAPPING);
+				setStatus(`Try again! Tap the spacebar to repeat the rhythm. Press Enter when done. (Attempt ${attemptCount}/${MAX_ATTEMPTS})`, 'info');
+				tapArea.focus();
+				startMetronome();
+			}
+		}
+
+		// --- Visual Metronome ---
+		function startMetronome() {
+			stopMetronome();
+			if (!currentBpm) return;
+
+			const beatMs = 60000 / currentBpm;
+			const pulse = () => {
+				metronomeEl.classList.add('pulse');
+				setTimeout(() => metronomeEl.classList.remove('pulse'), 100);
+			};
+
+			pulse();
+			metronomeInterval = setInterval(pulse, beatMs);
+		}
+
+		function stopMetronome() {
+			if (metronomeInterval) {
+				clearInterval(metronomeInterval);
+				metronomeInterval = null;
+			}
+			metronomeEl.classList.remove('pulse');
+		}
+
+		// --- Replay ---
+		function updateReplayBtn() {
+			replayBtn.textContent = `Replay (${replaysLeft})`;
+			replayBtn.disabled = replaysLeft <= 0 || currentState !== STATE.TAPPING;
+		}
+
+		async function doReplay() {
+			if (replaysLeft <= 0 || !currentPattern) return;
+			replaysLeft--;
+			updateReplayBtn();
+			stopMetronome();
+
+			await playPattern(currentPattern);
+
+			setState(STATE.TAPPING);
+			updateReplayBtn();
+			setStatus('Tap the spacebar to repeat the rhythm. Press Enter when done.', 'info');
+			tapArea.focus();
+			startMetronome();
+		}
+
+		// Initialize
+		setState(STATE.IDLE);
+
+		// --- Event Handlers ---
+		playBtn.addEventListener('click', async () => {
+			ensureAudioCtx();
+			currentPattern = generatePattern();
+			userTaps = [];
+			attemptCount = 0;
+			replaysLeft = MAX_REPLAYS;
+			tapCount.textContent = '';
+
+			await playPattern(currentPattern);
+
+			setState(STATE.TAPPING);
+			updateReplayBtn();
+			setStatus('Now tap the spacebar to repeat the rhythm. Press Enter when done. Press R to replay.', 'info');
+			tapArea.focus();
+			startMetronome();
+		});
+
+		replayBtn.addEventListener('click', () => {
+			if (currentState === STATE.TAPPING) {
+				doReplay();
+			}
+		});
+
+		tapArea.addEventListener('keydown', (e) => {
+			if (currentState !== STATE.TAPPING) return;
+
+			if (e.key === ' ' || e.code === 'Space') {
+				e.preventDefault();
+
+				const tapTime = performance.now();
+				userTaps.push(tapTime);
+
+				tapFlash.classList.add('active');
+				setTimeout(() => tapFlash.classList.remove('active'), 100);
+
+				const tapIndex = userTaps.length - 1;
+				if (tapIndex < currentPattern.length) {
+					playBeat(currentPattern[tapIndex]);
+				} else {
+					playClick();
+				}
+
+				tapCount.textContent = `Taps: ${userTaps.length}`;
+			}
+
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				evaluateAttempt();
+			}
+
+			if (e.key === 'r' || e.key === 'R') {
+				e.preventDefault();
+				doReplay();
+			}
+
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				setState(STATE.IDLE);
+				stopMetronome();
+				setStatus('Reset. Choose a difficulty and press Play Rhythm.', 'info');
+				currentPattern = null;
+				userTaps = [];
+				attemptCount = 0;
+				replaysLeft = MAX_REPLAYS;
+				tapCount.textContent = '';
+				updateReplayBtn();
+			}
+		});
+
+		submitBtn.addEventListener('click', () => {
+			if (currentState === STATE.TAPPING) {
+				evaluateAttempt();
+			}
+		});
+	</script>
+</body>
+</html>
