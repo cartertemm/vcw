@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Focus sanity checks</title>
+</head>
+<body>
+	<h1>Focus sanity checks</h1>
+	<p>Open the devtools console. Any failing assertion will appear there.</p>
+	<script>
+		function fillPinkNoise(buffer) {
+			const data = buffer.getChannelData(0);
+			let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+			for (let i = 0; i < data.length; i++) {
+				const white = Math.random() * 2 - 1;
+				b0 = 0.99886 * b0 + white * 0.0555179;
+				b1 = 0.99332 * b1 + white * 0.0750759;
+				b2 = 0.96900 * b2 + white * 0.1538520;
+				b3 = 0.86650 * b3 + white * 0.3104856;
+				b4 = 0.55000 * b4 + white * 0.5329522;
+				b5 = -0.7616 * b5 - white * 0.0168980;
+				data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+				b6 = white * 0.115926;
+			}
+		}
+
+		// run only on user gesture so AudioContext can be created
+		document.body.addEventListener('click', () => {
+			const ctx = new AudioContext();
+			const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+			fillPinkNoise(buf);
+			const data = buf.getChannelData(0);
+			let min = Infinity, max = -Infinity, sum = 0;
+			for (let i = 0; i < data.length; i++) {
+				if (data[i] < min) min = data[i];
+				if (data[i] > max) max = data[i];
+				sum += data[i];
+			}
+			const mean = sum / data.length;
+			console.assert(min >= -1 && max <= 1, 'pink noise out of [-1, 1] range');
+			console.assert(Math.abs(mean) < 0.05, 'pink noise mean should be near zero, got ' + mean);
+			console.assert(max - min > 0.5, 'pink noise range should be substantial, got ' + (max - min));
+			console.log('pink noise sanity check passed', { min, max, mean });
+			ctx.close();
+		}, { once: true });
+	</script>
+</body>
+</html>

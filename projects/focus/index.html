@@ -210,10 +210,28 @@
 			});
 		}
 
+		function fillPinkNoise(buffer) {
+			const data = buffer.getChannelData(0);
+			let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+			for (let i = 0; i < data.length; i++) {
+				const white = Math.random() * 2 - 1;
+				b0 = 0.99886 * b0 + white * 0.0555179;
+				b1 = 0.99332 * b1 + white * 0.0750759;
+				b2 = 0.96900 * b2 + white * 0.1538520;
+				b3 = 0.86650 * b3 + white * 0.3104856;
+				b4 = 0.55000 * b4 + white * 0.5329522;
+				b5 = -0.7616 * b5 - white * 0.0168980;
+				data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+				b6 = white * 0.115926;
+			}
+		}
+
 		const AudioEngine = {
 			ctx: null,
 			masterGain: null,
 			playing: false,
+			noiseSource: null,
+			bandFilters: null,
 
 			start() {
 				if (this.playing) return;
@@ -224,12 +242,54 @@
 					this.masterGain.connect(this.ctx.destination);
 				}
 				if (this.ctx.state === 'suspended') this.ctx.resume();
+				this._buildNoise();
 				this.playing = true;
 			},
 
 			stop() {
 				if (!this.playing) return;
+				if (this.noiseSource) {
+					this.noiseSource.stop();
+					this.noiseSource.disconnect();
+					this.noiseSource = null;
+				}
+				if (this.bandFilters) {
+					this.bandFilters.forEach(f => f.disconnect());
+					this.bandFilters = null;
+				}
 				this.playing = false;
+			},
+
+			_buildNoise() {
+				const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 2, this.ctx.sampleRate);
+				fillPinkNoise(buf);
+				const src = this.ctx.createBufferSource();
+				src.buffer = buf;
+				src.loop = true;
+
+				const filters = BAND_FREQS.map((hz) => {
+					const f = this.ctx.createBiquadFilter();
+					f.type = 'peaking';
+					f.frequency.value = hz;
+					f.Q.value = 1.0;
+					f.gain.value = 0;
+					return f;
+				});
+
+				// chain: src -> filter[0] -> filter[1] -> ... -> filter[9] -> masterGain
+				src.connect(filters[0]);
+				for (let i = 0; i < filters.length - 1; i++) {
+					filters[i].connect(filters[i + 1]);
+				}
+				filters[filters.length - 1].connect(this.masterGain);
+				src.start();
+
+				this.noiseSource = src;
+				this.bandFilters = filters;
+			},
+
+			setBand(i, gainDb) {
+				if (this.bandFilters) this.bandFilters[i].gain.value = gainDb;
 			},
 
 			setMasterVolume(v) {
@@ -329,6 +389,10 @@
 				} else {
 					AudioEngine.start();
 					AudioEngine.setMasterVolume(Number(volume.value) / 100);
+					// push current band slider values into the engine
+					for (let i = 0; i < BAND_FREQS.length; i++) {
+						AudioEngine.setBand(i, Number(document.getElementById(`band-${i}`).value));
+					}
 					beginBtn.textContent = 'Stop session';
 					beginBtn.setAttribute('aria-pressed', 'true');
 				}
@@ -341,6 +405,13 @@
 				AudioEngine.setMasterVolume(v);
 				volume.setAttribute('aria-valuetext', `${volume.value} percent`);
 				saveState({ masterVolume: v });
+			});
+
+			document.querySelectorAll('#bands input[type="range"]').forEach(input => {
+				input.addEventListener('input', () => {
+					const i = Number(input.dataset.bandIndex);
+					AudioEngine.setBand(i, Number(input.value));
+				});
 			});
 		});
 	</script>
