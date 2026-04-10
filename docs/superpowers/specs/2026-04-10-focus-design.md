@@ -163,7 +163,7 @@ Single page, three vertical regions.
 - **Target frequency.** `<input type="range">`, min 0.5 Hz, max 45 Hz, step 0.1 Hz. Live updates the engine during playback.
 - **Soundscape.** `<select>` with seven options: None, Rain, Ocean, Forest wind, Fire, Thunder, Cafe.
 - **Timer.** `<select>` with options: Off, 10 min, 20 min, 45 min, 90 min.
-- **Frequency ramp.** `<input type="range">`, min 0 (off), max 15 (minutes). A label beside it says "Off" when at 0, otherwise "Ramp over N min." When on, the ramp target equals the current preset's `hz`; the starting frequency is 2 Hz below the target. (Minimal, non-configurable.)
+- **Frequency ramp.** `<input type="range">`, min 0 (off), max 15 (minutes). A label beside it says "Off" when at 0, otherwise "Ramp over N min." When on, the ramp target equals the current preset's `hz`; the starting frequency is `max(0.5, target - 2)` Hz, so Sleep (target 2.5 Hz) starts at the 0.5 Hz floor. (Minimal, non-configurable.)
 - **Macro sliders.** Two `<input type="range">` controls, Brightness and Warmth, each driving a small fixed curve over the 10 band sliders. Moving a macro updates the band sliders visually and in value. Moving a band slider does not back-propagate to the macros.
 - **10 band sliders.** Inside a `<fieldset>` with `<legend>Bands</legend>`. Each is an `<input type="range">` with a visible text label (descriptive name with Hz as secondary text), `min="-24"`, `max="12"`, `step="0.5"`, and an `aria-valuetext` that reads like `"Low bass: -3 decibels"`.
 - **Master volume.** One `<input type="range">` in the Now Playing block, 0 to 100.
@@ -193,7 +193,7 @@ Two `<dialog>` elements: About and Credits. Both are native HTML dialogs — foc
 }
 ```
 
-`loadState()` reads on page ready. `saveState()` writes on any change. No migration, no versioning — the rules say no speculative flexibility.
+`loadState()` reads on page ready. `saveState()` is called directly at each mutation site — no watcher, no observer, no debounce. No migration, no versioning.
 
 ## Session lifecycle
 
@@ -230,7 +230,7 @@ Every item below is a verification step the build must pass before it is conside
 
 1. **Loads as a static file.** Open `index.html` from `file://` and from a static server; both load without errors. No network requests after assets finish loading.
 2. **All six presets play audibly on Begin.** Click each preset, hit Begin, hear audio within 1 second, no console errors.
-3. **Each entrainment technique produces the expected signal.** For each of binaural, monaural, isochronic, and soundscape-only: inspect the node graph in devtools and confirm oscillators, LFO, and panners are wired per the design. For isochronic, confirm `EntrainmentGain` is modulated at the target Hz.
+3. **Each entrainment technique produces the expected signal.** For each of binaural, monaural, isochronic, and soundscape-only: inspect the node graph in devtools and confirm oscillators, LFO, and panners are wired per the design. For isochronic, confirm `EntrainmentGain` is modulated as a square wave at the target Hz.
 4. **Target-Hz slider re-tunes playback live.** During playback, drag the frequency slider; the audible beat changes without a restart.
 5. **10-band EQ sliders sculpt the noise live.** During playback, drag each band; the audible tone changes. Macro sliders move multiple band sliders together and update their `aria-valuetext`.
 6. **Timer runs down with fade and chime.** Set a 10-second timer; the last 4 seconds fade out; a chime plays; the live region announces "Session complete."
