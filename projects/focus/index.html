@@ -569,22 +569,69 @@
 				AudioEngine.setTargetHz(hz);
 			});
 
-			function toggleSession() {
-				if (AudioEngine.playing) {
+			const timerSelect = document.getElementById('timer');
+			const liveRegion = document.getElementById('live-region');
+			let sessionTimeoutId = null;
+
+			function playChime() {
+				const ctx = AudioEngine.ctx;
+				if (!ctx) return;
+				// Chime bypasses masterGain on purpose: by the time the chime plays,
+				// masterGain has been ramped to 0 by the fade-out and would mute it.
+				const osc = ctx.createOscillator();
+				const gain = ctx.createGain();
+				osc.frequency.value = 880;
+				osc.type = 'sine';
+				gain.gain.setValueAtTime(0.3, ctx.currentTime);
+				gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5);
+				osc.connect(gain).connect(ctx.destination);
+				osc.start();
+				osc.stop(ctx.currentTime + 1.5);
+			}
+
+			function endSession(naturalEnd) {
+				if (!AudioEngine.playing) return;
+				const ctx = AudioEngine.ctx;
+				const now = ctx.currentTime;
+				AudioEngine.masterGain.gain.setValueAtTime(AudioEngine.masterGain.gain.value, now);
+				AudioEngine.masterGain.gain.linearRampToValueAtTime(0, now + 4);
+				setTimeout(() => {
 					AudioEngine.stop();
 					beginBtn.textContent = 'Begin session';
 					beginBtn.setAttribute('aria-pressed', 'false');
-				} else {
-					AudioEngine.targetHz = Number(targetHz.value);
-					AudioEngine.entrainmentMode = document.querySelector('input[name="technique"]:checked').value;
-					AudioEngine.start();
-					AudioEngine.setMasterVolume(Number(volume.value) / 100);
-					for (let i = 0; i < BAND_FREQS.length; i++) {
-						AudioEngine.setBand(i, Number(document.getElementById(`band-${i}`).value));
+					if (naturalEnd) {
+						playChime();
+						liveRegion.textContent = 'Session complete.';
+					} else {
+						liveRegion.textContent = 'Stopped.';
 					}
-					loadSoundscapeWithIndicator(soundscapeSelect.value);
-					beginBtn.textContent = 'Stop session';
-					beginBtn.setAttribute('aria-pressed', 'true');
+				}, 4000);
+			}
+
+			function toggleSession() {
+				if (AudioEngine.playing) {
+					if (sessionTimeoutId) { clearTimeout(sessionTimeoutId); sessionTimeoutId = null; }
+					endSession(false);
+					return;
+				}
+				AudioEngine.targetHz = Number(targetHz.value);
+				AudioEngine.entrainmentMode = document.querySelector('input[name="technique"]:checked').value;
+				AudioEngine.start();
+				AudioEngine.setMasterVolume(Number(volume.value) / 100);
+				for (let i = 0; i < BAND_FREQS.length; i++) {
+					AudioEngine.setBand(i, Number(document.getElementById(`band-${i}`).value));
+				}
+				loadSoundscapeWithIndicator(soundscapeSelect.value);
+				beginBtn.textContent = 'Stop session';
+				beginBtn.setAttribute('aria-pressed', 'true');
+
+				const seconds = Number(timerSelect.value);
+				if (seconds > 0) {
+					// fade starts at (seconds - 4), so schedule endSession at (seconds - 4) to begin the fade
+					sessionTimeoutId = setTimeout(() => {
+						sessionTimeoutId = null;
+						endSession(true);
+					}, Math.max(0, (seconds - 4)) * 1000);
 				}
 			}
 
