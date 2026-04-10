@@ -182,6 +182,12 @@
 			dark:    [5, 4, 3, 2, 1, -1, -3, -5, -8, -10],
 		};
 
+		// weights: how much each macro pushes each band. Multiplied by the macro slider value.
+		const MACRO_CURVES = {
+			brightness: [-1.0, -0.8, -0.6, -0.4, -0.2, 0.2, 0.4, 0.6, 0.8, 1.0],
+			warmth:     [ 1.0,  0.8,  0.6,  0.4,  0.2, 0.0, -0.2, -0.4, -0.6, -0.8],
+		};
+
 		const STATE_KEY = 'focus.state';
 		function loadState() {
 			try {
@@ -340,6 +346,21 @@
 
 			const state = loadState();
 			const initialPresetId = state.lastPresetId || 'focus';
+			const macroBrightness = document.getElementById('macro-brightness');
+			const macroWarmth = document.getElementById('macro-warmth');
+			let bandBase = EQ_CURVES[PRESETS.find(p => p.id === (state.lastPresetId || 'focus')).eq].slice();
+
+			function applyMacros() {
+				const b = Number(macroBrightness.value);
+				const w = Number(macroWarmth.value);
+				for (let i = 0; i < 10; i++) {
+					const delta = b * MACRO_CURVES.brightness[i] + w * MACRO_CURVES.warmth[i];
+					const next = Math.max(-24, Math.min(12, bandBase[i] + delta));
+					const input = document.getElementById(`band-${i}`);
+					input.value = String(next);
+					input.dispatchEvent(new Event('input'));
+				}
+			}
 
 			function selectPreset(presetId) {
 				const preset = PRESETS.find(p => p.id === presetId);
@@ -347,6 +368,9 @@
 				document.querySelectorAll('#preset-strip button').forEach(b => {
 					b.setAttribute('aria-checked', b.dataset.presetId === presetId ? 'true' : 'false');
 				});
+				bandBase = EQ_CURVES[preset.eq].slice();
+				macroBrightness.value = '0';
+				macroWarmth.value = '0';
 				applyPreset(preset);
 				saveState({ lastPresetId: presetId });
 			}
@@ -369,6 +393,9 @@
 				nextBtn.focus();
 				selectPreset(ids[nextIdx]);
 			});
+
+			macroBrightness.addEventListener('input', applyMacros);
+			macroWarmth.addEventListener('input', applyMacros);
 
 			selectPreset(initialPresetId);
 
