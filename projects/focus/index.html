@@ -775,6 +775,21 @@
 				aboutDialog.close();
 				document.getElementById('credits-dialog').showModal();
 			});
+
+			document.addEventListener('keydown', (e) => {
+				const el = document.activeElement;
+				const tag = el?.tagName;
+				const inputType = el?.type;
+				// A text-editable input is a <textarea> or an <input> whose type is not range/radio
+				const isEditable = tag === 'TEXTAREA' || (tag === 'INPUT' && inputType !== 'range' && inputType !== 'radio');
+				if (isEditable) return;
+				if (e.key === ' ' || e.key.toLowerCase() === 'm') {
+					// Don't steal Space from buttons, range, or radio — let native activation/scrubbing work
+					if (e.key === ' ' && (tag === 'BUTTON' || inputType === 'range' || inputType === 'radio')) return;
+					e.preventDefault();
+					toggleSession();
+				}
+			});
 		});
 	</script>
 </body>
