@@ -66,6 +66,13 @@
 		@media (prefers-reduced-motion: reduce) {
 			*, *::before, *::after { transition: none !important; animation: none !important; }
 		}
+		#first-run-panel {
+			background: #0f3460;
+			padding: 0.75rem 1rem;
+			border-radius: 4px;
+			margin-bottom: 1rem;
+		}
+		#first-run-panel button { margin-right: 0.5rem; }
 	</style>
 </head>
 <body>
@@ -202,17 +209,21 @@
 		}
 
 		function applyPreset(preset) {
+			const s = loadState();
+			const effectiveTechnique = (preset.technique === 'binaural' && s.hasHeadphones === false)
+				? 'monaural'
+				: preset.technique;
 			document.getElementById('np-preset').textContent = preset.name;
 			document.getElementById('np-hz').textContent = preset.hz.toFixed(1);
 			document.getElementById('target-hz').value = String(preset.hz);
 			document.getElementById('target-hz-readout').textContent = `${preset.hz.toFixed(1)} Hz`;
-			document.querySelector(`input[name="technique"][value="${preset.technique}"]`).checked = true;
+			document.querySelector(`input[name="technique"][value="${effectiveTechnique}"]`).checked = true;
 			document.getElementById('soundscape').value = preset.soundscape;
 			const curve = EQ_CURVES[preset.eq];
 			curve.forEach((v, i) => {
 				const input = document.getElementById(`band-${i}`);
 				input.value = String(v);
-				input.dispatchEvent(new Event('input')); // refresh readout and aria-valuetext
+				input.dispatchEvent(new Event('input'));
 			});
 		}
 
@@ -490,6 +501,41 @@
 
 			const state = loadState();
 			const initialPresetId = state.lastPresetId || 'focus';
+
+			const firstRunPanel = document.getElementById('first-run-panel');
+			if (state.hasHeadphones === undefined) {
+				firstRunPanel.hidden = false;
+				firstRunPanel.innerHTML = `
+					<p id="headphone-q">Are you wearing stereo headphones? Binaural beats need them; other modes don't.</p>
+					<div role="group" aria-labelledby="headphone-q">
+						<button type="button" data-hp="yes">Yes</button>
+						<button type="button" data-hp="no">No</button>
+						<button type="button" data-hp="later">Ask me later</button>
+					</div>
+				`;
+				firstRunPanel.querySelectorAll('button').forEach(b => {
+					b.addEventListener('click', () => {
+						const v = b.dataset.hp;
+						if (v === 'yes') saveState({ hasHeadphones: true });
+						else if (v === 'no') saveState({ hasHeadphones: false });
+						// 'later' saves nothing
+						firstRunPanel.hidden = true;
+						// re-apply current preset so the technique reflects the new fallback
+						selectPreset(document.querySelector('#preset-strip button[aria-checked="true"]').dataset.presetId);
+					});
+				});
+
+				// Escape dismisses (equivalent to "later") — listen on document so it works
+				// even before the user has tabbed into the panel
+				const escapeHandler = (e) => {
+					if (e.key === 'Escape' && !firstRunPanel.hidden) {
+						firstRunPanel.hidden = true;
+						document.removeEventListener('keydown', escapeHandler);
+					}
+				};
+				document.addEventListener('keydown', escapeHandler);
+			}
+
 			const macroBrightness = document.getElementById('macro-brightness');
 			const macroWarmth = document.getElementById('macro-warmth');
 			let bandBase = EQ_CURVES[PRESETS.find(p => p.id === (state.lastPresetId || 'focus')).eq].slice();
