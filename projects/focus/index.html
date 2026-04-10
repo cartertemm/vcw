@@ -243,6 +243,16 @@
 			soundscapeGain: null,
 			soundscapeCache: {},
 			currentSoundscapeName: null,
+			CARRIER_HZ: 200,
+			entrainmentMode: 'none',
+			targetHz: 14,
+			oscL: null,
+			oscR: null,
+			pannerL: null,
+			pannerR: null,
+			entrainmentGain: null,
+			lfo: null,
+			lfoDepth: null,
 
 			start() {
 				if (this.playing) return;
@@ -254,6 +264,7 @@
 				}
 				if (this.ctx.state === 'suspended') this.ctx.resume();
 				this._buildNoise();
+				this._buildEntrainment();
 				this.playing = true;
 			},
 
@@ -261,6 +272,7 @@
 				if (!this.playing) return;
 				if (this.noiseSource) { this.noiseSource.stop(); this.noiseSource.disconnect(); this.noiseSource = null; }
 				if (this.bandFilters) { this.bandFilters.forEach(f => f.disconnect()); this.bandFilters = null; }
+				this._teardownEntrainment();
 				this._stopSoundscape();
 				this.currentSoundscapeName = null;
 				this.playing = false;
@@ -292,6 +304,80 @@
 
 				this.noiseSource = src;
 				this.bandFilters = filters;
+			},
+
+			_buildEntrainment() {
+				this._teardownEntrainment();
+				if (this.entrainmentMode === 'none') return;
+
+				const gain = this.ctx.createGain();
+				gain.gain.value = 0.15;
+
+				if (this.entrainmentMode === 'binaural') {
+					this.oscL = this.ctx.createOscillator();
+					this.oscR = this.ctx.createOscillator();
+					this.oscL.frequency.value = this.CARRIER_HZ;
+					this.oscR.frequency.value = this.CARRIER_HZ + this.targetHz;
+					this.pannerL = this.ctx.createStereoPanner();
+					this.pannerR = this.ctx.createStereoPanner();
+					this.pannerL.pan.value = -1;
+					this.pannerR.pan.value = 1;
+					this.oscL.connect(this.pannerL).connect(gain);
+					this.oscR.connect(this.pannerR).connect(gain);
+					this.oscL.start();
+					this.oscR.start();
+				} else if (this.entrainmentMode === 'monaural') {
+					this.oscL = this.ctx.createOscillator();
+					this.oscR = this.ctx.createOscillator();
+					this.oscL.frequency.value = this.CARRIER_HZ;
+					this.oscR.frequency.value = this.CARRIER_HZ + this.targetHz;
+					this.oscL.connect(gain);
+					this.oscR.connect(gain);
+					this.oscL.start();
+					this.oscR.start();
+				} else if (this.entrainmentMode === 'isochronic') {
+					this.oscL = this.ctx.createOscillator();
+					this.oscL.frequency.value = this.CARRIER_HZ;
+					this.oscL.connect(gain);
+					this.oscL.start();
+					this.lfo = this.ctx.createOscillator();
+					this.lfo.type = 'square';
+					this.lfo.frequency.value = this.targetHz;
+					this.lfoDepth = this.ctx.createGain();
+					this.lfoDepth.gain.value = 0.5;
+					this.lfo.connect(this.lfoDepth).connect(gain.gain);
+					gain.gain.value = 0.5;
+					this.lfo.start();
+				}
+
+				gain.connect(this.masterGain);
+				this.entrainmentGain = gain;
+			},
+
+			_teardownEntrainment() {
+				[this.oscL, this.oscR, this.lfo].forEach(o => {
+					if (o) { try { o.stop(); } catch {} o.disconnect(); }
+				});
+				[this.pannerL, this.pannerR, this.lfoDepth, this.entrainmentGain].forEach(n => {
+					if (n) n.disconnect();
+				});
+				this.oscL = this.oscR = this.lfo = null;
+				this.pannerL = this.pannerR = this.lfoDepth = this.entrainmentGain = null;
+			},
+
+			setEntrainmentMode(mode) {
+				this.entrainmentMode = mode;
+				if (this.playing) this._buildEntrainment();
+			},
+
+			setTargetHz(hz) {
+				this.targetHz = hz;
+				if (!this.playing) return;
+				if (this.entrainmentMode === 'binaural' || this.entrainmentMode === 'monaural') {
+					if (this.oscR) this.oscR.frequency.setValueAtTime(this.CARRIER_HZ + hz, this.ctx.currentTime);
+				} else if (this.entrainmentMode === 'isochronic') {
+					if (this.lfo) this.lfo.frequency.setValueAtTime(hz, this.ctx.currentTime);
+				}
 			},
 
 			async loadSoundscape(name) {
@@ -467,12 +553,30 @@
 				}
 			});
 
+			document.querySelectorAll('input[name="technique"]').forEach(r => {
+				r.addEventListener('change', () => {
+					if (r.checked) AudioEngine.setEntrainmentMode(r.value);
+				});
+			});
+
+			const targetHz = document.getElementById('target-hz');
+			const targetHzReadout = document.getElementById('target-hz-readout');
+			targetHz.addEventListener('input', () => {
+				const hz = Number(targetHz.value);
+				targetHzReadout.textContent = `${hz.toFixed(1)} Hz`;
+				targetHz.setAttribute('aria-valuetext', `Target frequency ${hz.toFixed(1)} hertz`);
+				document.getElementById('np-hz').textContent = hz.toFixed(1);
+				AudioEngine.setTargetHz(hz);
+			});
+
 			function toggleSession() {
 				if (AudioEngine.playing) {
 					AudioEngine.stop();
 					beginBtn.textContent = 'Begin session';
 					beginBtn.setAttribute('aria-pressed', 'false');
 				} else {
+					AudioEngine.targetHz = Number(targetHz.value);
+					AudioEngine.entrainmentMode = document.querySelector('input[name="technique"]:checked').value;
 					AudioEngine.start();
 					AudioEngine.setMasterVolume(Number(volume.value) / 100);
 					for (let i = 0; i < BAND_FREQS.length; i++) {
