@@ -22,6 +22,7 @@ Two small ambiguities were resolved before task breakdown. If either is wrong, c
 
 1. **Noise color.** The spec enumerates four colors (white, pink, brown, grey) as engine capabilities but does not define a UI control for picking one. v1 ships **pink noise only** (via Paul Kellet's economical filter approximation). The other three colors are not generated and not implemented. Cutting them follows the minimum-code rule.
 2. **EQ curve seed values.** The spec defines four named curves (`neutral`, `warm`, `bright`, `dark`) as initial 10-band gain arrays but leaves the actual numbers to implementation. Values are chosen with reasonable defaults in Task 3, not tuned against research.
+3. **`rampTargetHz` signature.** The spec sketches `rampTargetHz(toHz, durationSec)`. The implementation uses `rampTargetHz(fromHz, toHz, durationSec)` because the ramp needs an explicit starting frequency — otherwise it would have to read the oscillator's current value, which is brittle. The 3-arg form is a strict improvement and does not change user-facing behavior.
 
 ## Testing model
 
@@ -197,6 +198,7 @@ Replace the placeholder `<h1>` and `<p>` with:
 				<option value="thunder">Thunder</option>
 				<option value="cafe">Cafe</option>
 			</select>
+			<span id="soundscape-loading" hidden aria-live="polite">Loading…</span>
 		</label>
 
 		<label>Timer
@@ -1030,10 +1032,22 @@ In the DOMContentLoaded handler:
 
 ```js
 const soundscapeSelect = document.getElementById('soundscape');
+const soundscapeLoading = document.getElementById('soundscape-loading');
 
-soundscapeSelect.addEventListener('change', async () => {
+async function loadSoundscapeWithIndicator(name) {
+	if (name !== 'none' && !AudioEngine.soundscapeCache[name]) {
+		soundscapeLoading.hidden = false;
+	}
+	try {
+		await AudioEngine.loadSoundscape(name);
+	} finally {
+		soundscapeLoading.hidden = true;
+	}
+}
+
+soundscapeSelect.addEventListener('change', () => {
 	if (AudioEngine.playing) {
-		await AudioEngine.loadSoundscape(soundscapeSelect.value);
+		loadSoundscapeWithIndicator(soundscapeSelect.value);
 	}
 });
 ```
@@ -1052,7 +1066,7 @@ function toggleSession() {
 		for (let i = 0; i < BAND_FREQS.length; i++) {
 			AudioEngine.setBand(i, Number(document.getElementById(`band-${i}`).value));
 		}
-		AudioEngine.loadSoundscape(soundscapeSelect.value); // fire and forget
+		loadSoundscapeWithIndicator(soundscapeSelect.value); // fire and forget, indicator handles UX
 		beginBtn.textContent = 'Stop session';
 		beginBtn.setAttribute('aria-pressed', 'true');
 	}
@@ -1062,12 +1076,13 @@ function toggleSession() {
 - [ ] **Step 4: Verify**
 
 Reload. Click Begin. Expected:
-- With "Focus" preset selected, Rain should be playing alongside the noise bed (there may be a brief pause while the file loads on first play)
-- Change soundscape to Ocean: the soundscape swaps without restarting playback
-- Change to None: only the sculpted noise remains
-- Click Stop, then Begin again: soundscape resumes (from cache — no fetch on second load)
+- With "Focus" preset selected, the "Loading…" label appears next to the soundscape select, then hides once the fetch+decode completes, and Rain begins playing alongside the noise bed
+- Change soundscape to Ocean: "Loading…" appears briefly, then Ocean plays and the previous sample stops
+- Change back to Rain: no "Loading…" label this time (cached), playback swaps instantly
+- Change to None: only the sculpted noise remains, no label shown
+- Click Stop, then Begin again: soundscape resumes without re-fetching (cache persists while the engine object lives)
 - No console errors
-- Check the network tab: `rain.ogg` is fetched exactly once per session; subsequent picks of the same name come from cache
+- Check the network tab: `rain.ogg` is fetched exactly once; subsequent picks of the same name come from cache
 
 - [ ] **Step 5: Commit**
 
@@ -1122,11 +1137,14 @@ _buildEntrainment() {
 		this.oscL.start();
 		this.oscR.start();
 	} else if (this.entrainmentMode === 'monaural') {
+		// No StereoPanner nodes: both oscillators route directly to `gain`,
+		// which sums them acoustically. The beat exists in the audible signal,
+		// so monaural works on speakers (unlike binaural, which requires
+		// per-ear isolation to produce the beat in the brain).
 		this.oscL = this.ctx.createOscillator();
 		this.oscR = this.ctx.createOscillator();
 		this.oscL.frequency.value = this.CARRIER_HZ;
 		this.oscR.frequency.value = this.CARRIER_HZ + this.targetHz;
-		// both center-panned — they sum acoustically in a single gain node
 		this.oscL.connect(gain);
 		this.oscR.connect(gain);
 		this.oscL.start();
@@ -1303,6 +1321,8 @@ let sessionTimeoutId = null;
 function playChime() {
 	const ctx = AudioEngine.ctx;
 	if (!ctx) return;
+	// Chime bypasses masterGain on purpose: by the time the chime plays,
+	// masterGain has been ramped to 0 by the fade-out and would mute it.
 	const osc = ctx.createOscillator();
 	const gain = ctx.createGain();
 	osc.frequency.value = 880;
@@ -1526,10 +1546,15 @@ if (state.hasHeadphones === undefined) {
 		});
 	});
 
-	// Escape dismisses (equivalent to "later")
-	firstRunPanel.addEventListener('keydown', (e) => {
-		if (e.key === 'Escape') firstRunPanel.hidden = true;
-	});
+	// Escape dismisses (equivalent to "later") — listen on document so it works
+	// even before the user has tabbed into the panel
+	const escapeHandler = (e) => {
+		if (e.key === 'Escape' && !firstRunPanel.hidden) {
+			firstRunPanel.hidden = true;
+			document.removeEventListener('keydown', escapeHandler);
+		}
+	};
+	document.addEventListener('keydown', escapeHandler);
 }
 ```
 
@@ -1722,14 +1747,15 @@ In DOMContentLoaded:
 
 ```js
 document.addEventListener('keydown', (e) => {
-	// Ignore if focus is in a text-editable element
-	const tag = document.activeElement?.tagName;
-	const isEditable = tag === 'INPUT' && document.activeElement.type !== 'range' && document.activeElement.type !== 'radio' || tag === 'TEXTAREA';
+	const el = document.activeElement;
+	const tag = el?.tagName;
+	const inputType = el?.type;
+	// A text-editable input is a <textarea> or an <input> whose type is not range/radio
+	const isEditable = tag === 'TEXTAREA' || (tag === 'INPUT' && inputType !== 'range' && inputType !== 'radio');
 	if (isEditable) return;
 	if (e.key === ' ' || e.key.toLowerCase() === 'm') {
-		// Don't steal Space from buttons/range/radio — native handling
-		if (tag === 'BUTTON' && e.key === ' ') return;
-		if (tag === 'INPUT' && (document.activeElement.type === 'range' || document.activeElement.type === 'radio') && e.key === ' ') return;
+		// Don't steal Space from buttons, range, or radio — let native activation/scrubbing work
+		if (e.key === ' ' && (tag === 'BUTTON' || inputType === 'range' || inputType === 'radio')) return;
 		e.preventDefault();
 		toggleSession();
 	}
