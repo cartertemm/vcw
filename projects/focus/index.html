@@ -210,6 +210,33 @@
 			});
 		}
 
+		const AudioEngine = {
+			ctx: null,
+			masterGain: null,
+			playing: false,
+
+			start() {
+				if (this.playing) return;
+				if (!this.ctx) {
+					this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+					this.masterGain = this.ctx.createGain();
+					this.masterGain.gain.value = 0.7;
+					this.masterGain.connect(this.ctx.destination);
+				}
+				if (this.ctx.state === 'suspended') this.ctx.resume();
+				this.playing = true;
+			},
+
+			stop() {
+				if (!this.playing) return;
+				this.playing = false;
+			},
+
+			setMasterVolume(v) {
+				if (this.masterGain) this.masterGain.gain.value = v;
+			},
+		};
+
 		document.addEventListener('DOMContentLoaded', () => {
 			const presetStrip = document.getElementById('preset-strip');
 			PRESETS.forEach((p, i) => {
@@ -284,6 +311,37 @@
 			});
 
 			selectPreset(initialPresetId);
+
+			const beginBtn = document.getElementById('begin-btn');
+			const volume = document.getElementById('volume');
+
+			// Restore persisted volume
+			if (typeof state.masterVolume === 'number') {
+				volume.value = String(Math.round(state.masterVolume * 100));
+				volume.setAttribute('aria-valuetext', `${volume.value} percent`);
+			}
+
+			function toggleSession() {
+				if (AudioEngine.playing) {
+					AudioEngine.stop();
+					beginBtn.textContent = 'Begin session';
+					beginBtn.setAttribute('aria-pressed', 'false');
+				} else {
+					AudioEngine.start();
+					AudioEngine.setMasterVolume(Number(volume.value) / 100);
+					beginBtn.textContent = 'Stop session';
+					beginBtn.setAttribute('aria-pressed', 'true');
+				}
+			}
+
+			beginBtn.addEventListener('click', toggleSession);
+
+			volume.addEventListener('input', () => {
+				const v = Number(volume.value) / 100;
+				AudioEngine.setMasterVolume(v);
+				volume.setAttribute('aria-valuetext', `${volume.value} percent`);
+				saveState({ masterVolume: v });
+			});
 		});
 	</script>
 </body>
