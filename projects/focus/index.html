@@ -380,6 +380,25 @@
 				}
 			},
 
+			rampTargetHz(fromHz, toHz, durationSec) {
+				this.targetHz = toHz;
+				if (!this.playing) return;
+				const now = this.ctx.currentTime;
+				if (this.entrainmentMode === 'binaural' || this.entrainmentMode === 'monaural') {
+					if (this.oscR) {
+						this.oscR.frequency.cancelScheduledValues(now);
+						this.oscR.frequency.setValueAtTime(this.CARRIER_HZ + fromHz, now);
+						this.oscR.frequency.linearRampToValueAtTime(this.CARRIER_HZ + toHz, now + durationSec);
+					}
+				} else if (this.entrainmentMode === 'isochronic') {
+					if (this.lfo) {
+						this.lfo.frequency.cancelScheduledValues(now);
+						this.lfo.frequency.setValueAtTime(fromHz, now);
+						this.lfo.frequency.linearRampToValueAtTime(toHz, now + durationSec);
+					}
+				}
+			},
+
 			async loadSoundscape(name) {
 				if (name === 'none') {
 					this._stopSoundscape();
@@ -569,6 +588,15 @@
 				AudioEngine.setTargetHz(hz);
 			});
 
+			const rampSlider = document.getElementById('ramp');
+			const rampReadout = document.getElementById('ramp-readout');
+			rampSlider.addEventListener('input', () => {
+				const v = Number(rampSlider.value);
+				rampReadout.textContent = v === 0 ? 'Off' : `${v} min`;
+				rampSlider.setAttribute('aria-valuetext', v === 0 ? 'Off' : `Ramp over ${v} minutes`);
+			});
+			rampSlider.dispatchEvent(new Event('input'));
+
 			const timerSelect = document.getElementById('timer');
 			const liveRegion = document.getElementById('live-region');
 			let sessionTimeoutId = null;
@@ -622,6 +650,26 @@
 					AudioEngine.setBand(i, Number(document.getElementById(`band-${i}`).value));
 				}
 				loadSoundscapeWithIndicator(soundscapeSelect.value);
+
+				const rampMinutes = Number(rampSlider.value);
+				if (rampMinutes > 0) {
+					const targetEnd = Number(targetHz.value);
+					const rampStart = Math.max(0.5, targetEnd - 2);
+					AudioEngine.rampTargetHz(rampStart, targetEnd, rampMinutes * 60);
+					// UI update over the ramp duration
+					const startMs = performance.now();
+					const durMs = rampMinutes * 60 * 1000;
+					const tick = () => {
+						const elapsed = performance.now() - startMs;
+						const t = Math.min(1, elapsed / durMs);
+						const current = rampStart + (targetEnd - rampStart) * t;
+						targetHz.value = String(current.toFixed(1));
+						targetHz.dispatchEvent(new Event('input'));
+						if (t < 1 && AudioEngine.playing) requestAnimationFrame(tick);
+					};
+					requestAnimationFrame(tick);
+				}
+
 				beginBtn.textContent = 'Stop session';
 				beginBtn.setAttribute('aria-pressed', 'true');
 
