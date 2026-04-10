@@ -181,6 +181,48 @@
 			bright:  [-4, -3, -2, -1, 0, 1, 2, 3, 4, 3],
 			dark:    [5, 4, 3, 2, 1, -1, -3, -5, -8, -10],
 		};
+
+		document.addEventListener('DOMContentLoaded', () => {
+			const presetStrip = document.getElementById('preset-strip');
+			PRESETS.forEach((p, i) => {
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.setAttribute('role', 'radio');
+				btn.setAttribute('aria-checked', i === 2 ? 'true' : 'false'); // Focus selected by default
+				btn.dataset.presetId = p.id;
+				btn.textContent = p.name;
+				presetStrip.appendChild(btn);
+			});
+
+			const bandsFieldset = document.getElementById('bands');
+			BAND_FREQS.forEach((hz, i) => {
+				const label = document.createElement('label');
+				const name = document.createElement('span');
+				const freqText = hz >= 1000 ? `${hz/1000}k Hz` : `${hz} Hz`;
+				name.textContent = `${BAND_LABELS[i]} (${freqText})`;
+				const input = document.createElement('input');
+				input.type = 'range';
+				input.min = '-24';
+				input.max = '12';
+				input.step = '0.5';
+				input.value = '0';
+				input.id = `band-${i}`;
+				input.dataset.bandIndex = String(i);
+				input.setAttribute('aria-valuetext', `${BAND_LABELS[i]}: 0 decibels`);
+				const readout = document.createElement('span');
+				readout.textContent = '0 dB';
+				readout.id = `band-${i}-readout`;
+				input.addEventListener('input', () => {
+					const v = Number(input.value).toFixed(1);
+					readout.textContent = `${v} dB`;
+					input.setAttribute('aria-valuetext', `${BAND_LABELS[i]}: ${v} decibels`);
+				});
+				label.appendChild(name);
+				label.appendChild(input);
+				label.appendChild(readout);
+				bandsFieldset.appendChild(label);
+			});
+		});
 	</script>
 </body>
 </html>
