@@ -238,6 +238,11 @@
 			playing: false,
 			noiseSource: null,
 			bandFilters: null,
+			soundscapeBuffer: null,
+			soundscapeSource: null,
+			soundscapeGain: null,
+			soundscapeCache: {},
+			currentSoundscapeName: null,
 
 			start() {
 				if (this.playing) return;
@@ -254,15 +259,10 @@
 
 			stop() {
 				if (!this.playing) return;
-				if (this.noiseSource) {
-					this.noiseSource.stop();
-					this.noiseSource.disconnect();
-					this.noiseSource = null;
-				}
-				if (this.bandFilters) {
-					this.bandFilters.forEach(f => f.disconnect());
-					this.bandFilters = null;
-				}
+				if (this.noiseSource) { this.noiseSource.stop(); this.noiseSource.disconnect(); this.noiseSource = null; }
+				if (this.bandFilters) { this.bandFilters.forEach(f => f.disconnect()); this.bandFilters = null; }
+				this._stopSoundscape();
+				this.currentSoundscapeName = null;
 				this.playing = false;
 			},
 
@@ -292,6 +292,45 @@
 
 				this.noiseSource = src;
 				this.bandFilters = filters;
+			},
+
+			async loadSoundscape(name) {
+				if (name === 'none') {
+					this._stopSoundscape();
+					this.currentSoundscapeName = null;
+					return;
+				}
+				if (!this.ctx) return;
+				let buffer = this.soundscapeCache[name];
+				if (!buffer) {
+					const res = await fetch(`assets/${name}.ogg`);
+					const arr = await res.arrayBuffer();
+					buffer = await this.ctx.decodeAudioData(arr);
+					this.soundscapeCache[name] = buffer;
+				}
+				this._stopSoundscape();
+				const src = this.ctx.createBufferSource();
+				src.buffer = buffer;
+				src.loop = true;
+				const gain = this.ctx.createGain();
+				gain.gain.value = 0.5;
+				src.connect(gain).connect(this.masterGain);
+				src.start();
+				this.soundscapeSource = src;
+				this.soundscapeGain = gain;
+				this.currentSoundscapeName = name;
+			},
+
+			_stopSoundscape() {
+				if (this.soundscapeSource) {
+					try { this.soundscapeSource.stop(); } catch {}
+					this.soundscapeSource.disconnect();
+					this.soundscapeSource = null;
+				}
+				if (this.soundscapeGain) {
+					this.soundscapeGain.disconnect();
+					this.soundscapeGain = null;
+				}
 			},
 
 			setBand(i, gainDb) {
@@ -408,6 +447,26 @@
 				volume.setAttribute('aria-valuetext', `${volume.value} percent`);
 			}
 
+			const soundscapeSelect = document.getElementById('soundscape');
+			const soundscapeLoading = document.getElementById('soundscape-loading');
+
+			async function loadSoundscapeWithIndicator(name) {
+				if (name !== 'none' && !AudioEngine.soundscapeCache[name]) {
+					soundscapeLoading.hidden = false;
+				}
+				try {
+					await AudioEngine.loadSoundscape(name);
+				} finally {
+					soundscapeLoading.hidden = true;
+				}
+			}
+
+			soundscapeSelect.addEventListener('change', () => {
+				if (AudioEngine.playing) {
+					loadSoundscapeWithIndicator(soundscapeSelect.value);
+				}
+			});
+
 			function toggleSession() {
 				if (AudioEngine.playing) {
 					AudioEngine.stop();
@@ -416,10 +475,10 @@
 				} else {
 					AudioEngine.start();
 					AudioEngine.setMasterVolume(Number(volume.value) / 100);
-					// push current band slider values into the engine
 					for (let i = 0; i < BAND_FREQS.length; i++) {
 						AudioEngine.setBand(i, Number(document.getElementById(`band-${i}`).value));
 					}
+					loadSoundscapeWithIndicator(soundscapeSelect.value);
 					beginBtn.textContent = 'Stop session';
 					beginBtn.setAttribute('aria-pressed', 'true');
 				}
