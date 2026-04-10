@@ -154,9 +154,33 @@
 		</details>
 	</section>
 
-	<dialog id="about-dialog">
-		<h2>About</h2>
-		<!-- content added in Task 13 -->
+	<dialog id="about-dialog" aria-labelledby="about-heading">
+		<h2 id="about-heading">About Focus</h2>
+		<p>Focus uses brainwave entrainment techniques — binaural beats, monaural beats, and isochronic tones — alongside a sculpted noise bed and optional nature soundscapes. Each preset sets a target frequency associated with a brainwave band, and the entrainment voice drives that frequency.</p>
+
+		<p>The evidence is mixed. There is moderate support for effects on anxiety and attention. Effects on "creativity" and "flow" are largely anecdotal, and individual responses vary widely across studies. Treat this as an experiment on yourself: notice what seems to help, ignore what doesn't.</p>
+
+		<p>Focus makes no health claims and is not a treatment for any medical condition.</p>
+
+		<h3>Brainwave band key</h3>
+		<ul>
+			<li><strong>Delta (0.5–4 Hz):</strong> deep sleep, restoration</li>
+			<li><strong>Theta (4–8 Hz):</strong> meditation, hypnagogic states, some associations with insight</li>
+			<li><strong>Alpha (8–13 Hz):</strong> relaxed alertness, eyes closed, calm</li>
+			<li><strong>Beta (13–30 Hz):</strong> active thinking, focused attention</li>
+			<li><strong>Gamma (30+ Hz):</strong> peak cognition, cross-region binding</li>
+		</ul>
+
+		<h3>References</h3>
+		<ul>
+			<li><a href="https://doi.org/10.3389/fnhum.2019.00167" target="_blank" rel="noopener">Garcia-Argibay, Santed, and Reales (2019). Efficacy of binaural auditory beats in cognition, anxiety, and pain perception: a meta-analysis. <em>Frontiers in Human Neuroscience</em>.</a></li>
+			<li><a href="https://doi.org/10.3389/fnhum.2017.00557" target="_blank" rel="noopener">Chaieb et al. (2017). Auditory beat stimulation and its effects on cognition and mood states. <em>Frontiers in Human Neuroscience</em>.</a></li>
+			<li><a href="https://doi.org/10.1080/08990220.2015.1091768" target="_blank" rel="noopener">Jirakittayakorn & Wongsawat (2017). Brain responses to a 6-Hz binaural beat: effects on general theta rhythm and frontal EEG. <em>Frontiers in Neuroscience</em>.</a></li>
+			<li><a href="https://doi.org/10.1016/j.actpsy.2014.02.004" target="_blank" rel="noopener">López-Caballero & Escera (2017). Binaural beat: a failure to enhance EEG power and emotional arousal. <em>Frontiers in Human Neuroscience</em>.</a> (null result — fair to show)</li>
+		</ul>
+
+		<p>For soundscape attribution, see the <button type="button" id="about-to-credits">Credits</button> dialog.</p>
+
 		<form method="dialog"><button type="submit">Close</button></form>
 	</dialog>
 
@@ -743,6 +767,13 @@
 					const i = Number(input.dataset.bandIndex);
 					AudioEngine.setBand(i, Number(input.value));
 				});
+			});
+
+			const aboutDialog = document.getElementById('about-dialog');
+			document.getElementById('about-btn').addEventListener('click', () => aboutDialog.showModal());
+			document.getElementById('about-to-credits').addEventListener('click', () => {
+				aboutDialog.close();
+				document.getElementById('credits-dialog').showModal();
 			});
 		});
 	</script>
