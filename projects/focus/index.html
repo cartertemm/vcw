@@ -119,11 +119,7 @@
 					<option value="rain">Rain</option>
 					<option value="ocean">Ocean</option>
 					<option value="forest-wind">Forest wind</option>
-					<option value="fire">Fire</option>
-					<option value="thunder">Thunder</option>
-					<option value="cafe">Cafe</option>
 				</select>
-				<span id="soundscape-loading" hidden aria-live="polite">Loading…</span>
 			</label>
 
 			<label>Timer
@@ -194,9 +190,9 @@
 			{ id: 'creativity',   name: 'Creativity',   band: 'Theta',      hz: 6.0,  technique: 'binaural',   soundscape: 'forest-wind', eq: 'warm'    },
 			{ id: 'flow',         name: 'Flow',         band: 'High Alpha', hz: 10.5, technique: 'monaural',   soundscape: 'ocean',       eq: 'neutral' },
 			{ id: 'focus',        name: 'Focus',        band: 'Low Beta',   hz: 14.0, technique: 'isochronic', soundscape: 'rain',        eq: 'neutral' },
-			{ id: 'productivity', name: 'Productivity', band: 'Mid Beta',   hz: 18.0, technique: 'isochronic', soundscape: 'cafe',        eq: 'bright'  },
-			{ id: 'relaxation',   name: 'Relaxation',   band: 'Low Alpha',  hz:  9.0, technique: 'binaural',   soundscape: 'fire',        eq: 'warm'    },
-			{ id: 'sleep',        name: 'Sleep',        band: 'Delta',      hz:  2.5, technique: 'monaural',   soundscape: 'thunder',     eq: 'dark'    },
+			{ id: 'productivity', name: 'Productivity', band: 'Mid Beta',   hz: 18.0, technique: 'isochronic', soundscape: 'rain',        eq: 'bright'  },
+			{ id: 'relaxation',   name: 'Relaxation',   band: 'Low Alpha',  hz:  9.0, technique: 'binaural',   soundscape: 'ocean',       eq: 'warm'    },
+			{ id: 'sleep',        name: 'Sleep',        band: 'Delta',      hz:  2.5, technique: 'monaural',   soundscape: 'forest-wind', eq: 'dark'    },
 		];
 
 		const BAND_FREQS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
@@ -205,12 +201,12 @@
 			'Upper-mids', 'Presence', 'Brilliance', 'Air', 'Sparkle',
 		];
 
-		// gain in dB for each of the 10 bands; reasonable defaults, not research-tuned
+		// gain in dB for each of the 10 bands; each curve rolls off the hissy top end
 		const EQ_CURVES = {
-			neutral: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-			warm:    [3, 4, 3, 2, 0, -1, -2, -3, -4, -5],
-			bright:  [-4, -3, -2, -1, 0, 1, 2, 3, 4, 3],
-			dark:    [5, 4, 3, 2, 1, -1, -3, -5, -8, -10],
+			neutral: [ 2,  1,  0,  0, -1, -3,  -5,  -7, -10, -14],
+			warm:    [ 4,  4,  3,  1,  0, -3,  -6,  -9, -13, -18],
+			bright:  [ 0,  0,  0,  0,  0, -1,  -2,  -3,  -5,  -8],
+			dark:    [ 5,  5,  4,  3,  1, -2,  -6, -10, -15, -22],
 		};
 
 		// weights: how much each macro pushes each band. Multiplied by the macro slider value.
@@ -239,10 +235,23 @@
 				: preset.technique;
 			document.getElementById('np-preset').textContent = preset.name;
 			document.getElementById('np-hz').textContent = preset.hz.toFixed(1);
-			document.getElementById('target-hz').value = String(preset.hz);
-			document.getElementById('target-hz-readout').textContent = `${preset.hz.toFixed(1)} Hz`;
-			document.querySelector(`input[name="technique"][value="${effectiveTechnique}"]`).checked = true;
-			document.getElementById('soundscape').value = preset.soundscape;
+
+			// Dispatch events so mid-session preset changes actually reach the
+			// audio engine. Setting .value / .checked alone does not fire the
+			// change/input handlers that call AudioEngine.setEntrainmentMode,
+			// setTargetHz, or loadSoundscape.
+			const targetHzInput = document.getElementById('target-hz');
+			targetHzInput.value = String(preset.hz);
+			targetHzInput.dispatchEvent(new Event('input'));
+
+			const techniqueRadio = document.querySelector(`input[name="technique"][value="${effectiveTechnique}"]`);
+			techniqueRadio.checked = true;
+			techniqueRadio.dispatchEvent(new Event('change'));
+
+			const soundscapeSelect = document.getElementById('soundscape');
+			soundscapeSelect.value = preset.soundscape;
+			soundscapeSelect.dispatchEvent(new Event('change'));
+
 			const curve = EQ_CURVES[preset.eq];
 			curve.forEach((v, i) => {
 				const input = document.getElementById(`band-${i}`);
@@ -273,11 +282,10 @@
 			playing: false,
 			noiseSource: null,
 			bandFilters: null,
-			soundscapeBuffer: null,
-			soundscapeSource: null,
-			soundscapeGain: null,
-			soundscapeCache: {},
+			noiseGainNode: null,
+			soundscapeNodes: [],
 			currentSoundscapeName: null,
+			_oceanWaveTimer: null,
 			CARRIER_HZ: 200,
 			entrainmentMode: 'none',
 			targetHz: 14,
@@ -307,6 +315,8 @@
 				if (!this.playing) return;
 				if (this.noiseSource) { this.noiseSource.stop(); this.noiseSource.disconnect(); this.noiseSource = null; }
 				if (this.bandFilters) { this.bandFilters.forEach(f => f.disconnect()); this.bandFilters = null; }
+				if (this.noiseGainNode) { this.noiseGainNode.disconnect(); this.noiseGainNode = null; }
+				if (this.eqInput) { this.eqInput.disconnect(); this.eqInput = null; }
 				this._teardownEntrainment();
 				this._stopSoundscape();
 				this.currentSoundscapeName = null;
@@ -329,8 +339,23 @@
 					return f;
 				});
 
-				// chain: src -> filter[0] -> filter[1] -> ... -> filter[9] -> masterGain
-				src.connect(filters[0]);
+				// Gates the raw noise bed (0 when a soundscape is active so we
+				// don't stack two noise layers). Starts at 0 to avoid a pop.
+				const noiseGain = this.ctx.createGain();
+				noiseGain.gain.value = 0;
+
+				// Shared pre-EQ bus. Both the raw noise bed and any active
+				// soundscape feed into this, so the 10-band EQ, macro sliders,
+				// and preset curves sculpt whichever source is playing.
+				const eqInput = this.ctx.createGain();
+				eqInput.gain.value = 1;
+
+				// chain:
+				//   noise src -> noiseGain ---\
+				//                              eqInput -> filter[0] -> ... -> filter[9] -> masterGain
+				//   soundscape tail ----------/
+				src.connect(noiseGain).connect(eqInput);
+				eqInput.connect(filters[0]);
 				for (let i = 0; i < filters.length - 1; i++) {
 					filters[i].connect(filters[i + 1]);
 				}
@@ -339,16 +364,32 @@
 
 				this.noiseSource = src;
 				this.bandFilters = filters;
+				this.noiseGainNode = noiseGain;
+				this.eqInput = eqInput;
+			},
+
+			_setNoiseBedGain(target) {
+				if (!this.noiseGainNode) return;
+				const now = this.ctx.currentTime;
+				const current = this.noiseGainNode.gain.value;
+				this.noiseGainNode.gain.cancelScheduledValues(now);
+				this.noiseGainNode.gain.setValueAtTime(current, now);
+				this.noiseGainNode.gain.linearRampToValueAtTime(target, now + 0.05);
 			},
 
 			_buildEntrainment() {
 				this._teardownEntrainment();
 				if (this.entrainmentMode === 'none') return;
 
+				// Per-channel RMS normalized across techniques (~0.05). Without
+				// this, binaural is the quietest, monaural ~1.4x, and the old
+				// isochronic setting (base=depth=0.12) was ~2.8x louder — so
+				// switching technique used to produce a jarring level jump.
 				const gain = this.ctx.createGain();
-				gain.gain.value = 0.15;
 
 				if (this.entrainmentMode === 'binaural') {
+					// Each channel carries one sine at amp g; RMS = g / sqrt(2).
+					gain.gain.value = 0.07;
 					this.oscL = this.ctx.createOscillator();
 					this.oscR = this.ctx.createOscillator();
 					this.oscL.frequency.value = this.CARRIER_HZ;
@@ -362,6 +403,8 @@
 					this.oscL.start();
 					this.oscR.start();
 				} else if (this.entrainmentMode === 'monaural') {
+					// Two sines sum into each channel; RMS of that sum ≈ g.
+					gain.gain.value = 0.05;
 					this.oscL = this.ctx.createOscillator();
 					this.oscR = this.ctx.createOscillator();
 					this.oscL.frequency.value = this.CARRIER_HZ;
@@ -375,13 +418,19 @@
 					this.oscL.frequency.value = this.CARRIER_HZ;
 					this.oscL.connect(gain);
 					this.oscL.start();
+					// Triangle LFO instead of square: smooth fade in/out per pulse.
+					// Square at targetHz produces transition clicks and dense sideband
+					// clusters; triangle keeps the entrainment rhythm with clean
+					// sidebands and no discontinuities.
 					this.lfo = this.ctx.createOscillator();
-					this.lfo.type = 'square';
+					this.lfo.type = 'triangle';
 					this.lfo.frequency.value = this.targetHz;
 					this.lfoDepth = this.ctx.createGain();
-					this.lfoDepth.gain.value = 0.5;
+					// Triangle-modulated sine peak = base + depth = 0.12;
+					// RMS = peak / sqrt(6) ≈ 0.049 ≈ binaural RMS.
+					this.lfoDepth.gain.value = 0.06;
 					this.lfo.connect(this.lfoDepth).connect(gain.gain);
-					gain.gain.value = 0.5;
+					gain.gain.value = 0.06;
 					this.lfo.start();
 				}
 
@@ -434,43 +483,178 @@
 				}
 			},
 
-			async loadSoundscape(name) {
-				if (name === 'none') {
-					this._stopSoundscape();
-					this.currentSoundscapeName = null;
-					return;
-				}
+			loadSoundscape(name) {
 				if (!this.ctx) return;
-				let buffer = this.soundscapeCache[name];
-				if (!buffer) {
-					const res = await fetch(`assets/${name}.ogg`);
-					const arr = await res.arrayBuffer();
-					buffer = await this.ctx.decodeAudioData(arr);
-					this.soundscapeCache[name] = buffer;
-				}
 				this._stopSoundscape();
-				const src = this.ctx.createBufferSource();
-				src.buffer = buffer;
-				src.loop = true;
-				const gain = this.ctx.createGain();
-				gain.gain.value = 0.5;
-				src.connect(gain).connect(this.masterGain);
-				src.start();
-				this.soundscapeSource = src;
-				this.soundscapeGain = gain;
 				this.currentSoundscapeName = name;
+				// The 10-band noise bed plays only when no soundscape is active,
+				// so picking rain/ocean/forest-wind doesn't stack two noise layers.
+				this._setNoiseBedGain(name === 'none' ? 1 : 0);
+				if (name === 'none') return;
+				if (name === 'rain') this._buildRain();
+				else if (name === 'ocean') this._buildOcean();
+				else if (name === 'forest-wind') this._buildForestWind();
 			},
 
 			_stopSoundscape() {
-				if (this.soundscapeSource) {
-					try { this.soundscapeSource.stop(); } catch {}
-					this.soundscapeSource.disconnect();
-					this.soundscapeSource = null;
+				if (this._oceanWaveTimer) {
+					clearTimeout(this._oceanWaveTimer);
+					this._oceanWaveTimer = null;
 				}
-				if (this.soundscapeGain) {
-					this.soundscapeGain.disconnect();
-					this.soundscapeGain = null;
+				this.soundscapeNodes.forEach(n => {
+					if (n.stop) { try { n.stop(); } catch {} }
+					n.disconnect();
+				});
+				this.soundscapeNodes = [];
+			},
+
+			_buildRain() {
+				const ctx = this.ctx;
+				// Pink noise (1/f) instead of white: rain has a natural rolloff, not flat hiss.
+				const buf = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate);
+				fillPinkNoise(buf);
+				const src = ctx.createBufferSource();
+				src.buffer = buf;
+				src.loop = true;
+				// Gentle highpass only removes subsonic content; keep the body.
+				const hp = ctx.createBiquadFilter();
+				hp.type = 'highpass';
+				hp.frequency.value = 90;
+				// Lowpass tames the top end so it reads as "rain" not "hiss".
+				const lp = ctx.createBiquadFilter();
+				lp.type = 'lowpass';
+				lp.frequency.value = 4200;
+				lp.Q.value = 0.6;
+				// Modest presence lift for the "shushing" character of falling rain.
+				const peak = ctx.createBiquadFilter();
+				peak.type = 'peaking';
+				peak.frequency.value = 1800;
+				peak.Q.value = 0.7;
+				peak.gain.value = 3;
+				const gain = ctx.createGain();
+				gain.gain.value = 0.5;
+				// Slow breathing LFO: real rain ebbs and flows rather than sitting at one level.
+				const lfo = ctx.createOscillator();
+				lfo.type = 'sine';
+				lfo.frequency.value = 0.09;
+				const lfoDepth = ctx.createGain();
+				lfoDepth.gain.value = 0.08;
+				lfo.connect(lfoDepth).connect(gain.gain);
+				src.connect(hp).connect(lp).connect(peak).connect(gain).connect(this.eqInput);
+				src.start();
+				lfo.start();
+				this.soundscapeNodes.push(src, hp, lp, peak, gain, lfo, lfoDepth);
+			},
+
+			_buildOcean() {
+				const ctx = this.ctx;
+				// Layer 1: brown noise — the deep, constant rumble of surf beneath the waves.
+				const bufA = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate);
+				const dataA = bufA.getChannelData(0);
+				let last = 0;
+				for (let i = 0; i < dataA.length; i++) {
+					const white = Math.random() * 2 - 1;
+					last = (last + 0.02 * white) / 1.02;
+					dataA[i] = last * 3.5;
 				}
+				const srcA = ctx.createBufferSource();
+				srcA.buffer = bufA;
+				srcA.loop = true;
+				const lpA = ctx.createBiquadFilter();
+				lpA.type = 'lowpass';
+				lpA.frequency.value = 500;
+				const gainA = ctx.createGain();
+				gainA.gain.value = 0.55;
+				srcA.connect(lpA).connect(gainA).connect(this.eqInput);
+				srcA.start();
+				// Layer 2: pink noise with a wave envelope — the "wash" of water over sand.
+				const bufB = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate);
+				fillPinkNoise(bufB);
+				const srcB = ctx.createBufferSource();
+				srcB.buffer = bufB;
+				srcB.loop = true;
+				const lpB = ctx.createBiquadFilter();
+				lpB.type = 'lowpass';
+				lpB.frequency.value = 2200;
+				lpB.Q.value = 0.5;
+				const peakB = ctx.createBiquadFilter();
+				peakB.type = 'peaking';
+				peakB.frequency.value = 1200;
+				peakB.Q.value = 0.8;
+				peakB.gain.value = 3;
+				const gainB = ctx.createGain();
+				const WASH_BASELINE = 0.05;
+				gainB.gain.value = WASH_BASELINE;
+				srcB.connect(lpB).connect(peakB).connect(gainB).connect(this.eqInput);
+				srcB.start();
+
+				// Discrete wave scheduler. A constant LFO sounds metronomic — real
+				// surf has variable peak energy ("sets") and unpredictable spacing
+				// (sometimes back-to-back, sometimes a long lull). Each tick
+				// schedules one envelope on gainB.gain and queues the next tick at
+				// a random offset; on stop, _stopSoundscape clears the timer.
+				const tick = () => {
+					// Power-of-2 bias keeps most waves moderate with an occasional
+					// big swell. Floor at 0.18 so even the smallest wave is audible.
+					const peak = 0.18 + Math.pow(Math.random(), 1.6) * 0.55;
+					const attack = 1.2 + Math.random() * 2.0;   // 1.2 – 3.2 s rise
+					const decay = 2.5 + Math.random() * 3.5;    // 2.5 – 6.0 s wash out
+					// Quadratic bias gives mostly short gaps with occasional lulls.
+					const gapAfter = 0.3 + Math.pow(Math.random(), 2) * 9;
+					const t0 = ctx.currentTime;
+					gainB.gain.cancelScheduledValues(t0);
+					gainB.gain.setValueAtTime(gainB.gain.value, t0);
+					gainB.gain.linearRampToValueAtTime(peak, t0 + attack);
+					gainB.gain.linearRampToValueAtTime(WASH_BASELINE, t0 + attack + decay);
+					const cycleSec = attack + decay + gapAfter;
+					this._oceanWaveTimer = setTimeout(tick, cycleSec * 1000);
+				};
+				tick();
+
+				this.soundscapeNodes.push(srcA, lpA, gainA, srcB, lpB, peakB, gainB);
+			},
+
+			_buildForestWind() {
+				const ctx = this.ctx;
+				const buf = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate);
+				fillPinkNoise(buf);
+				const src = ctx.createBufferSource();
+				src.buffer = buf;
+				src.loop = true;
+				// Modulated lowpass is what gives wind its "whoosh" — the gust sweeps open and closed.
+				const lp = ctx.createBiquadFilter();
+				lp.type = 'lowpass';
+				lp.frequency.value = 700;
+				lp.Q.value = 0.3;
+				// Main gust sweep: cutoff moves across ~200-1200 Hz every ~14 seconds.
+				const lfoFreq = ctx.createOscillator();
+				lfoFreq.type = 'sine';
+				lfoFreq.frequency.value = 0.07;
+				const lfoFreqDepth = ctx.createGain();
+				lfoFreqDepth.gain.value = 500;
+				lfoFreq.connect(lfoFreqDepth).connect(lp.frequency);
+				// Secondary, slower, out-of-phase sweep breaks up the regularity so it doesn't feel mechanical.
+				const lfoFreq2 = ctx.createOscillator();
+				lfoFreq2.type = 'sine';
+				lfoFreq2.frequency.value = 0.037;
+				const lfoFreq2Depth = ctx.createGain();
+				lfoFreq2Depth.gain.value = 250;
+				lfoFreq2.connect(lfoFreq2Depth).connect(lp.frequency);
+				const gain = ctx.createGain();
+				gain.gain.value = 0.45;
+				// Amplitude tracks the main gust so the sound swells when the filter opens.
+				const lfoAmp = ctx.createOscillator();
+				lfoAmp.type = 'sine';
+				lfoAmp.frequency.value = 0.07;
+				const lfoAmpDepth = ctx.createGain();
+				lfoAmpDepth.gain.value = 0.18;
+				lfoAmp.connect(lfoAmpDepth).connect(gain.gain);
+				src.connect(lp).connect(gain).connect(this.eqInput);
+				src.start();
+				lfoFreq.start();
+				lfoFreq2.start();
+				lfoAmp.start();
+				this.soundscapeNodes.push(src, lp, gain, lfoFreq, lfoFreqDepth, lfoFreq2, lfoFreq2Depth, lfoAmp, lfoAmpDepth);
 			},
 
 			setBand(i, gainDb) {
@@ -623,22 +807,10 @@
 			}
 
 			const soundscapeSelect = document.getElementById('soundscape');
-			const soundscapeLoading = document.getElementById('soundscape-loading');
-
-			async function loadSoundscapeWithIndicator(name) {
-				if (name !== 'none' && !AudioEngine.soundscapeCache[name]) {
-					soundscapeLoading.hidden = false;
-				}
-				try {
-					await AudioEngine.loadSoundscape(name);
-				} finally {
-					soundscapeLoading.hidden = true;
-				}
-			}
 
 			soundscapeSelect.addEventListener('change', () => {
 				if (AudioEngine.playing) {
-					loadSoundscapeWithIndicator(soundscapeSelect.value);
+					AudioEngine.loadSoundscape(soundscapeSelect.value);
 				}
 			});
 
@@ -719,12 +891,14 @@
 				for (let i = 0; i < BAND_FREQS.length; i++) {
 					AudioEngine.setBand(i, Number(document.getElementById(`band-${i}`).value));
 				}
-				loadSoundscapeWithIndicator(soundscapeSelect.value);
+				AudioEngine.loadSoundscape(soundscapeSelect.value);
 
 				const rampMinutes = Number(rampSlider.value);
 				if (rampMinutes > 0) {
 					const targetEnd = Number(targetHz.value);
-					const rampStart = Math.max(0.5, targetEnd - 2);
+					// 6 Hz span so the ramp actually crosses a band boundary
+					// (e.g. Focus 14 Hz → start at 8 Hz walks alpha into beta).
+					const rampStart = Math.max(0.5, targetEnd - 6);
 					AudioEngine.rampTargetHz(rampStart, targetEnd, rampMinutes * 60);
 					// UI update over the ramp duration
 					const startMs = performance.now();
@@ -775,6 +949,79 @@
 				aboutDialog.close();
 				document.getElementById('credits-dialog').showModal();
 			});
+
+			// --- Session-override persistence ---
+			// Saves on any control change (debounced so slider drags don't
+			// thrash localStorage). Restores on reload after the initial
+			// preset has been applied, so the user picks up exactly where
+			// they left off — a precondition for running repeatable
+			// self-experiments with the app.
+			let persistenceReady = false;
+			let saveOverridesTimer = null;
+			function saveOverrides() {
+				if (!persistenceReady) return;
+				clearTimeout(saveOverridesTimer);
+				saveOverridesTimer = setTimeout(() => {
+					const overrides = {
+						technique: document.querySelector('input[name="technique"]:checked')?.value,
+						targetHz: Number(document.getElementById('target-hz').value),
+						soundscape: document.getElementById('soundscape').value,
+						timer: document.getElementById('timer').value,
+						ramp: document.getElementById('ramp').value,
+						bands: BAND_FREQS.map((_, i) => Number(document.getElementById(`band-${i}`).value)),
+						macroBrightness: Number(macroBrightness.value),
+						macroWarmth: Number(macroWarmth.value),
+					};
+					saveState({ overrides });
+				}, 200);
+			}
+
+			function applyOverrides(ov) {
+				if (!ov) return;
+				if (ov.technique) {
+					const r = document.querySelector(`input[name="technique"][value="${ov.technique}"]`);
+					if (r) { r.checked = true; r.dispatchEvent(new Event('change')); }
+				}
+				if (typeof ov.targetHz === 'number') {
+					const th = document.getElementById('target-hz');
+					th.value = String(ov.targetHz);
+					th.dispatchEvent(new Event('input'));
+				}
+				if (ov.soundscape !== undefined) {
+					const ss = document.getElementById('soundscape');
+					ss.value = ov.soundscape;
+					ss.dispatchEvent(new Event('change'));
+				}
+				if (ov.timer !== undefined) document.getElementById('timer').value = ov.timer;
+				if (ov.ramp !== undefined) {
+					const rs = document.getElementById('ramp');
+					rs.value = ov.ramp;
+					rs.dispatchEvent(new Event('input'));
+				}
+				// Set macro values directly — don't dispatch input, or applyMacros
+				// would recompute bands from bandBase and clobber the saved band
+				// values we're about to restore (they already include the macro effect).
+				if (typeof ov.macroBrightness === 'number') macroBrightness.value = String(ov.macroBrightness);
+				if (typeof ov.macroWarmth === 'number') macroWarmth.value = String(ov.macroWarmth);
+				if (Array.isArray(ov.bands)) {
+					ov.bands.forEach((v, i) => {
+						const b = document.getElementById(`band-${i}`);
+						if (b) { b.value = String(v); b.dispatchEvent(new Event('input')); }
+					});
+				}
+			}
+
+			document.querySelectorAll('input[name="technique"]').forEach(r => r.addEventListener('change', saveOverrides));
+			document.getElementById('target-hz').addEventListener('input', saveOverrides);
+			document.getElementById('soundscape').addEventListener('change', saveOverrides);
+			document.getElementById('timer').addEventListener('change', saveOverrides);
+			document.getElementById('ramp').addEventListener('input', saveOverrides);
+			document.querySelectorAll('#bands input[type="range"]').forEach(r => r.addEventListener('input', saveOverrides));
+			macroBrightness.addEventListener('input', saveOverrides);
+			macroWarmth.addEventListener('input', saveOverrides);
+
+			applyOverrides(state.overrides);
+			persistenceReady = true;
 
 			document.addEventListener('keydown', (e) => {
 				const el = document.activeElement;
