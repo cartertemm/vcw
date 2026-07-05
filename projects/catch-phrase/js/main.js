@@ -22,7 +22,7 @@ function setupGate() {
 async function init() {
 	setupGate();
 	if ('serviceWorker' in navigator) {
-		navigator.serviceWorker.register('sw.js');
+		navigator.serviceWorker.register('sw.js').catch(() => {});
 	}
 
 	const statusEl = document.getElementById('status');
