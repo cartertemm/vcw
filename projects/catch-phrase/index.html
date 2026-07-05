@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="theme-color" content="#1e40af">
+	<title>Catch Phrase Companion</title>
+	<link rel="manifest" href="manifest.json">
+	<link rel="apple-touch-icon" href="assets/icon-180.png">
+	<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+	<section id="install-gate" hidden>
+		<h1>Install for the best experience</h1>
+		<p>It looks like this site is being visited in your browser. We highly recommend adding it to your home screen. The in-browser experience has address-bar clutter, inconsistent gesture handling with VoiceOver, and the audio can be suspended when the tab is backgrounded.</p>
+		<p>To install: tap the More button followed by the Share button in the Safari toolbar, then choose View More followed by Add to Home Screen. Launch the site from your home screen and it will run full-screen, like a native app.</p>
+		<button id="continue-anyway">Continue anyway</button>
+	</section>
+	<main id="app" hidden>
+		<h1 class="visually-hidden">Catch Phrase Companion</h1>
+		<div class="top-row">
+			<button id="category">Category: <span id="category-name">Everything</span></button>
+			<button id="timer">Timer</button>
+		</div>
+		<div id="word" aria-live="assertive" aria-atomic="true">Press Timer to start</div>
+		<button id="next">Next</button>
+		<div class="team-row">
+			<button id="team1">Team 1: <span id="score1">0</span></button>
+			<button id="team2">Team 2: <span id="score2">0</span></button>
+		</div>
+		<div id="status" role="status"></div>
+	</main>
+	<script type="module" src="js/main.js"></script>
+</body>
+</html>
