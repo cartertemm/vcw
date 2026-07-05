@@ -1,0 +1,30 @@
+import { readFile } from 'node:fs/promises';
+
+const SLUGS = ['around-the-world', 'fun-and-games', 'on-the-air', 'snack-time', 'the-great-outdoors'];
+const MIN_WORDS = 500;
+
+const seen = new Map();
+let failed = false;
+
+function fail(message) {
+	console.error(`FAIL: ${message}`);
+	failed = true;
+}
+
+for (const slug of SLUGS) {
+	const words = JSON.parse(await readFile(new URL(`../data/${slug}.json`, import.meta.url), 'utf8'));
+	if (!Array.isArray(words)) fail(`${slug}: not an array`);
+	if (words.length < MIN_WORDS) fail(`${slug}: only ${words.length} phrases (need ${MIN_WORDS})`);
+	for (const word of words) {
+		if (typeof word !== 'string' || word.trim() !== word || word.length === 0) {
+			fail(`${slug}: bad entry ${JSON.stringify(word)}`);
+			continue;
+		}
+		const key = word.toLowerCase();
+		if (seen.has(key)) fail(`${slug}: "${word}" duplicates entry in ${seen.get(key)}`);
+		seen.set(key, slug);
+	}
+	console.log(`${slug}: ${words.length} phrases`);
+}
+
+process.exit(failed ? 1 : 0);

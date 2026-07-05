@@ -1,4 +1,4 @@
-const CACHE_NAME = 'catch-phrase-v1';
+const CACHE_NAME = 'catch-phrase-v2';
 const ASSETS = [
 	'.',
 	'index.html',
