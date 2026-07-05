@@ -13,6 +13,7 @@ export function createGame({ categories, drawWord, timer, display, announce, upd
 
 	function onExpire() {
 		state = 'ended';
+		// display is the assertive live region; an announce() here would double-speak "Time's up" over VoiceOver.
 		display("Time's up");
 	}
 
@@ -47,6 +48,7 @@ export function createGame({ categories, drawWord, timer, display, announce, upd
 				if (state === 'round') timer.stop();
 				state = 'win';
 				playFanfare();
+				// display only, same reason as onExpire: avoid double-announcing the win over VoiceOver.
 				display(`Team ${team + 1} wins!`);
 			} else {
 				announce(`Team ${team + 1}: ${scores[team]}`);
