@@ -51,6 +51,15 @@ async function init() {
 	const score1El = document.getElementById('score1');
 	const score2El = document.getElementById('score2');
 
+	let clearStatusTimer = null;
+	function speak(text) {
+		clearTimeout(clearStatusTimer);
+		statusEl.textContent = text;
+		clearStatusTimer = setTimeout(() => {
+			statusEl.textContent = '';
+		}, 300);
+	}
+
 	const game = createGame({
 		categories: categories.map((c) => c.name),
 		drawWord,
@@ -58,9 +67,7 @@ async function init() {
 		display(text) {
 			wordEl.textContent = text;
 		},
-		announce(text) {
-			statusEl.textContent = text;
-		},
+		announce: speak,
 		updateScores(team1, team2) {
 			score1El.textContent = team1;
 			score2El.textContent = team2;
