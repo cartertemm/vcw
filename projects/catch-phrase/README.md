@@ -15,7 +15,7 @@ There are five buttons:
 - **Next**: skips to a new word, only during a round.
 - **Team 1** and **Team 2**: press whichever button matches the team that just guessed correctly. Each press adds a point and announces the new score.
 
-Play follows the classic rules. Pass the device around your group. When it's your team's turn, someone describes the word on screen (or in your ear) without saying any part of it, and teammates guess. When your team gets it, press your team's button, and the phrase advances to a new word for the next team. The timer counts down invisibly with beeps that speed up as time runs low, ending in a buzzer. Whichever team is holding the "phone" when the buzzer sounds gives the point to the other team, which the game reflects automatically once the round ends. First team to seven points wins, complete with a little fanfare.
+Play follows the classic rules. Pass the device around your group. When it's your team's turn, someone describes the word on screen (or in your ear) without saying any part of it, and press Next each time your team guesses correctly to bring up a new word. The timer counts down invisibly with beeps that speed up as time runs low, ending in a buzzer. Whichever team is NOT holding the device when the buzzer sounds gets the point, but the app doesn't award it automatically, press that team's button to log it. First team to seven points wins, complete with a little fanfare.
 
 ## Categories
 
