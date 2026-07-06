@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 const SLUGS = ['around-the-world', 'fun-and-games', 'on-the-air', 'snack-time', 'the-great-outdoors'];
 const MIN_WORDS = 500;
+const MAX_PHRASE_WORDS = 4;
 
 const seen = new Map();
 let failed = false;
@@ -19,6 +20,9 @@ for (const slug of SLUGS) {
 		if (typeof word !== 'string' || word.trim() !== word || word.length === 0) {
 			fail(`${slug}: bad entry ${JSON.stringify(word)}`);
 			continue;
+		}
+		if (word.split(/\s+/).length > MAX_PHRASE_WORDS) {
+			fail(`${slug}: "${word}" exceeds ${MAX_PHRASE_WORDS} words`);
 		}
 		const key = word.toLowerCase();
 		if (seen.has(key)) fail(`${slug}: "${word}" duplicates entry in ${seen.get(key)}`);
