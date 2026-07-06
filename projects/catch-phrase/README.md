@@ -43,7 +43,7 @@ npm test
 
 ## Word list provenance
 
-The five category lists total 3471 phrases. 2795 were written from scratch for this project. The remaining 676 were adapted from [`nick-aschenbach/game-words`](https://github.com/nick-aschenbach/game-words) (MIT licensed), sorted into whichever of the five categories fit best, filtered to exclude anything too simple for an adult audience, and filtered so that named individuals are limited to historical or fictional figures rather than living public figures. `nick-aschenbach/game-words` is copyright Nick Aschenbach and used here under the terms of its MIT license.
+The five category lists total 3675 phrases. 2999 were written from scratch for this project, including a later general enrichment pass that topped up all five categories with further originally-authored phrases. The remaining 676 were adapted from [`nick-aschenbach/game-words`](https://github.com/nick-aschenbach/game-words) (MIT licensed), sorted into whichever of the five categories fit best, filtered to exclude anything too simple for an adult audience, and filtered so that named individuals are limited to historical or fictional figures rather than living public figures. `nick-aschenbach/game-words` is copyright Nick Aschenbach and used here under the terms of its MIT license.
 
 ## Word privacy
 
