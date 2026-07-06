@@ -13,7 +13,8 @@ const TYPES = {
 const root = process.cwd();
 
 http.createServer(async (req, res) => {
-	const path = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+	const requestedPath = req.url.split('?')[0];
+	const path = requestedPath === '/' ? '/index.html' : requestedPath;
 	try {
 		const file = await readFile(join(root, normalize(decodeURIComponent(path))));
 		res.writeHead(200, { 'Content-Type': TYPES[extname(path)] || 'application/octet-stream' });
