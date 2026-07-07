@@ -19,7 +19,7 @@ Play follows the classic rules. Pass the device around your group. When it's you
 
 ## Categories
 
-Six categories are available: **Everything** (the union of all the others), **Around the World**, **Fun and Games**, **On the Air**, **Snack Time**, and **The Great Outdoors**, matching the categories in Ultimate Catch Phrase.
+Eight categories are available: **Everything** (the union of the five below), **Around the World**, **Fun and Games**, **On the Air**, **Snack Time**, and **The Great Outdoors**, matching the categories in Ultimate Catch Phrase, plus two adult-only categories: **After Dark** (crude humor, innuendo, dating, and drinking-culture phrases, not suitable for kids) and **Anything Goes** (the union of every category, including After Dark). After Dark is excluded from Everything, so groups who haven't opted into adult content by picking a category by name won't stumble into it by accident.
 
 ## Installing on iOS
 

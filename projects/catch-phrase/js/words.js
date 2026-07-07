@@ -5,7 +5,11 @@ export const CATEGORIES = [
 	{ slug: 'on-the-air', name: 'On the Air' },
 	{ slug: 'snack-time', name: 'Snack Time' },
 	{ slug: 'the-great-outdoors', name: 'The Great Outdoors' },
+	{ slug: 'after-dark', name: 'After Dark' },
+	{ slug: 'anything-goes', name: 'Anything Goes' },
 ];
+
+const COMPUTED_SLUGS = ['everything', 'anything-goes'];
 
 export function createDeck(words, rng = Math.random) {
 	let remaining = [];
@@ -28,7 +32,7 @@ export async function loadWordLists(fetchFn = fetch) {
 	const lists = new Map();
 	const failures = [];
 	for (const { slug } of CATEGORIES) {
-		if (slug === 'everything') continue;
+		if (COMPUTED_SLUGS.includes(slug)) continue;
 		try {
 			const res = await fetchFn(`data/${slug}.json`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -37,6 +41,8 @@ export async function loadWordLists(fetchFn = fetch) {
 			failures.push(slug);
 		}
 	}
-	lists.set('everything', [...lists.values()].flat());
+	const fetched = [...lists.entries()];
+	lists.set('anything-goes', fetched.flatMap(([, words]) => words));
+	lists.set('everything', fetched.filter(([slug]) => slug !== 'after-dark').flatMap(([, words]) => words));
 	return { lists, failures };
 }

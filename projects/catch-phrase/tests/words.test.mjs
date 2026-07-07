@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CATEGORIES, createDeck, loadWordLists } from '../js/words.js';
 
-test('CATEGORIES lists Everything plus the five Ultimate categories in order', () => {
+test('CATEGORIES lists Everything plus the five Ultimate categories in order, then the two adult categories', () => {
 	assert.deepEqual(CATEGORIES.map((c) => c.name), [
 		'Everything',
 		'Around the World',
@@ -10,6 +10,8 @@ test('CATEGORIES lists Everything plus the five Ultimate categories in order', (
 		'On the Air',
 		'Snack Time',
 		'The Great Outdoors',
+		'After Dark',
+		'Anything Goes',
 	]);
 });
 
@@ -35,4 +37,14 @@ test('loadWordLists returns lists, failures, and the everything union', async ()
 	assert.deepEqual(failures, ['snack-time']);
 	assert.equal(lists.get('everything').length, 8);
 	assert.equal(lists.has('snack-time'), false);
+});
+
+test('everything excludes after-dark, anything-goes includes it', async () => {
+	const fetchFn = async (url) => {
+		if (url.includes('snack-time')) return { ok: false, status: 404 };
+		return { ok: true, json: async () => [url, `${url}-2`] };
+	};
+	const { lists } = await loadWordLists(fetchFn);
+	assert.equal(lists.get('anything-goes').length, 10);
+	assert.equal(lists.get('everything').length, lists.get('anything-goes').length - 2);
 });

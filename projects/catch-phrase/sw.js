@@ -13,6 +13,7 @@ const ASSETS = [
 	'data/on-the-air.json',
 	'data/snack-time.json',
 	'data/the-great-outdoors.json',
+	'data/after-dark.json',
 	'manifest.json',
 	'assets/icon-180.png',
 	'assets/icon-192.png',
