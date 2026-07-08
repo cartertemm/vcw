@@ -21,9 +21,11 @@ function setupGate() {
 
 async function init() {
 	setupGate();
-	if ('serviceWorker' in navigator) {
+	// Reading navigator.serviceWorker throws a SecurityError in sandboxed
+	// iframes (opaque origin), e.g. the VibeCode Weekly demo runner.
+	try {
 		navigator.serviceWorker.register('sw.js').catch(() => {});
-	}
+	} catch (e) {}
 
 	const statusEl = document.getElementById('status');
 	const { lists, failures } = await loadWordLists();
