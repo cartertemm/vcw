@@ -43,7 +43,7 @@ npm test
 
 ## Word list provenance
 
-The six category lists total 3851 phrases. 3175 were written from scratch for this project, including a later general enrichment pass that topped up all five all-ages categories with further originally-authored phrases, plus the 176-phrase After Dark category, also originally authored. The remaining 676 were adapted from [`nick-aschenbach/game-words`](https://github.com/nick-aschenbach/game-words) (MIT licensed), sorted into whichever of the five all-ages categories fit best, filtered to exclude anything too simple for an adult audience, and filtered so that named individuals are limited to historical or fictional figures rather than living public figures. `nick-aschenbach/game-words` is copyright Nick Aschenbach and used here under the terms of its MIT license.
+The six category lists total 3837 phrases. 3161 were written from scratch for this project, including a later general enrichment pass that topped up all five all-ages categories with further originally-authored phrases, plus the 162-phrase After Dark category, also originally authored. The remaining 676 were adapted from [`nick-aschenbach/game-words`](https://github.com/nick-aschenbach/game-words) (MIT licensed), sorted into whichever of the five all-ages categories fit best, filtered to exclude anything too simple for an adult audience, and filtered so that named individuals are limited to historical or fictional figures rather than living public figures. `nick-aschenbach/game-words` is copyright Nick Aschenbach and used here under the terms of its MIT license.
 
 ## Word privacy
 
