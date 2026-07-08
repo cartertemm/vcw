@@ -19,6 +19,8 @@ function setupGate() {
 	}
 }
 
+const BUTTON_IDS = ['category', 'timer', 'next', 'team1', 'team2'];
+
 async function init() {
 	setupGate();
 	// Reading navigator.serviceWorker throws a SecurityError in sandboxed
@@ -28,15 +30,25 @@ async function init() {
 	} catch (e) {}
 
 	const statusEl = document.getElementById('status');
+	const wordEl = document.getElementById('word');
+
+	// Buttons stay disabled while word lists load over the network, so a slow
+	// connection reads as "loading" instead of silently doing nothing on tap.
+	for (const id of BUTTON_IDS) {
+		document.getElementById(id).disabled = true;
+	}
+	wordEl.textContent = 'Loading word lists…';
+
 	const { lists, failures } = await loadWordLists();
 	const categories = CATEGORIES.filter((c) => (lists.get(c.slug) || []).length > 0);
 	if (failures.length) {
 		statusEl.textContent = `Some word lists failed to load: ${failures.join(', ')}`;
 	}
 	if (categories.length === 0) {
-		document.getElementById('word').textContent = 'No word lists could be loaded. Reconnect and reload.';
+		wordEl.textContent = 'No word lists could be loaded. Reconnect and reload.';
 		return;
 	}
+	wordEl.textContent = 'Press Timer to start';
 
 	const decks = new Map();
 	function drawWord(categoryIndex) {
@@ -48,7 +60,6 @@ async function init() {
 	}
 
 	const audio = createAudio();
-	const wordEl = document.getElementById('word');
 	const categoryNameEl = document.getElementById('category-name');
 	const score1El = document.getElementById('score1');
 	const score2El = document.getElementById('score2');
@@ -88,6 +99,10 @@ async function init() {
 		game.pressCategory();
 		categoryNameEl.textContent = categories[game.categoryIndex].name;
 	});
+
+	for (const id of BUTTON_IDS) {
+		document.getElementById(id).disabled = false;
+	}
 }
 
 init();
