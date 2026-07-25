@@ -285,3 +285,4 @@ composer.phar
 .dccache
 .sass-cache/
 .docusaurus/
+.worktrees/
