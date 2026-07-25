@@ -50,3 +50,13 @@ export function makeDeck(realHeadlines, satireHeadlines, randomFn = Math.random)
 		}
 	};
 }
+
+export async function loadDeck() {
+	const [satireText, realText] = await Promise.all([
+		fetch("onion_titles.normalized.txt").then(response => response.text()),
+		fetch("nottheonion_titles.normalized.txt").then(response => response.text())
+	]);
+	const satire = parseHeadlines(satireText, "satire");
+	const real = parseHeadlines(realText, "real");
+	return makeDeck(real, satire);
+}
