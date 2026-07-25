@@ -1,0 +1,23 @@
+body {
+	font-family: system-ui, sans-serif;
+	max-width: 40rem;
+	margin: 2rem auto;
+	padding: 0 1rem;
+	line-height: 1.5;
+}
+
+button {
+	font-size: 1rem;
+	padding: 0.5rem 1rem;
+	margin: 0.25rem 0.25rem 0.25rem 0;
+	cursor: pointer;
+}
+
+h1, h2 {
+	outline: none;
+}
+
+h1:focus-visible, h2:focus-visible {
+	outline: 2px solid #1a73e8;
+	outline-offset: 2px;
+}
