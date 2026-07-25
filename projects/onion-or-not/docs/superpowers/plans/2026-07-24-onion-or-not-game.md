@@ -465,7 +465,7 @@ export function start(container, deck, onExit) {
 		container.innerHTML = `
 			<button type="button" data-action="back">Back to menu</button>
 			<h2 id="classic-headline">${escapeHtml(headline.text)}</h2>
-			<p>Score: ${tally.correct} / ${tally.total}</p>
+			<p id="classic-score">Score: ${tally.correct} / ${tally.total}</p>
 			<div id="classic-controls">
 				<button type="button" data-answer="real">Real</button>
 				<button type="button" data-answer="satire">Satire</button>
@@ -485,7 +485,7 @@ export function start(container, deck, onExit) {
 		container.querySelector("#classic-feedback").textContent = correct
 			? `Correct — this was ${headline.label}.`
 			: `Incorrect — this was ${headline.label}.`;
-		container.querySelector("p:nth-of-type(1)").textContent = `Score: ${tally.correct} / ${tally.total}`;
+		container.querySelector("#classic-score").textContent = `Score: ${tally.correct} / ${tally.total}`;
 		container.querySelector("#classic-controls").innerHTML =
 			`<button type="button" data-action="next">Next</button>`;
 		container.querySelector('[data-action="next"]').addEventListener("click", render);
@@ -739,6 +739,7 @@ import { escapeHtml, focusElement } from "../dom-utils.js";
 
 export function start(container, deck, onExit) {
 	let state = { secondsLeft: SURVIVAL_START_SECONDS, score: 0 };
+	let pendingFeedback = "";
 	let intervalId = setInterval(tick, 1000);
 	render();
 
@@ -764,6 +765,7 @@ export function start(container, deck, onExit) {
 				<button type="button" data-answer="real">Real</button>
 				<button type="button" data-answer="satire">Satire</button>
 			</div>
+			<p aria-live="polite" id="survival-feedback">${escapeHtml(pendingFeedback)}</p>
 		`;
 		focusElement(container.querySelector("#survival-headline"));
 		container.querySelector('[data-action="back"]').addEventListener("click", () => {
@@ -778,6 +780,9 @@ export function start(container, deck, onExit) {
 	function handleAnswer(headline, guess) {
 		const correct = guess === headline.label;
 		state = applyAnswer(state, correct);
+		pendingFeedback = correct
+			? `Correct — this was ${headline.label}.`
+			: `Incorrect — this was ${headline.label}.`;
 		if (state.secondsLeft <= 0) {
 			clearInterval(intervalId);
 			showResults();
@@ -795,6 +800,7 @@ export function start(container, deck, onExit) {
 		focusElement(container.querySelector("#survival-result"));
 		container.querySelector('[data-action="again"]').addEventListener("click", () => {
 			state = { secondsLeft: SURVIVAL_START_SECONDS, score: 0 };
+			pendingFeedback = "";
 			intervalId = setInterval(tick, 1000);
 			render();
 		});
@@ -805,7 +811,7 @@ export function start(container, deck, onExit) {
 
 - [ ] **Step 2: Manually verify in the browser**
 
-Once `index.js` is wired up (Task 12), play Survival: confirm the timer counts down, correct/wrong answers adjust the timer and score as expected, the round ends at 0 with focus on the results heading, and clicking "Back to menu" mid-round actually stops the interval (no console errors after leaving).
+Once `index.js` is wired up (Task 12), play Survival: confirm the timer counts down, correct/wrong answers adjust the timer and score as expected, the correct/incorrect feedback text is announced via the live region on each answer, the round ends at 0 with focus on the results heading, and clicking "Back to menu" mid-round actually stops the interval (no console errors after leaving).
 
 - [ ] **Step 3: Run the pure-logic test suite to confirm nothing broke**
 
@@ -914,7 +920,7 @@ git commit -m "Wire up menu, instructions screen, and mode mounting"
 - [ ] **Step 1: Run every test file together**
 
 Run: `npm test`
-Expected: PASS — all tests across `tests/data.test.js`, `tests/classic.test.js`, `tests/duel.test.js`, `tests/survival.test.js` (16 tests total)
+Expected: PASS — all tests across `tests/data.test.js` (7), `tests/classic.test.js` (2), `tests/duel.test.js` (2), `tests/survival.test.js` (3) — 14 tests total
 
 - [ ] **Step 2: Fix and re-run if anything fails**
 
@@ -944,7 +950,7 @@ Using only Tab/Shift+Tab/Enter/Space (no mouse), play through all three modes' f
 
 - [ ] **Step 5: Screen reader spot check**
 
-Using NVDA (Windows) or VoiceOver (Mac), play through at least one full round of each mode. Confirm: headings are announced on each transition, Classic/Survival feedback is announced via the live region without a focus jump, and Duel's headline buttons announce the "Which one is real?" prompt via `aria-describedby`.
+Using NVDA (Windows) or VoiceOver (Mac), play through at least one full round of each mode. Confirm: headings are announced on each transition, Classic and Survival feedback text ("Correct — this was..."/"Incorrect — this was...") is announced via the live region without a focus jump, and Duel's headline buttons announce the "Which one is real?" prompt via `aria-describedby`.
 
 - [ ] **Step 6: Confirm no mislabeled or oversized headlines slip through**
 
