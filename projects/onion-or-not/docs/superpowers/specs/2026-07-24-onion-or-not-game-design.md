@@ -19,7 +19,11 @@ modes/
 style.css
 ```
 
-Each mode module exports a single function `start(container, deck, onExit)`. `index.js` owns the menu screen and the `#app` container. Picking a mode clears the container and shows that mode's instructions screen (see below); starting the mode calls its `start()`, passing the shared `deck` and a callback (`onExit`) that returns control to the menu. Modes don't know about each other or about routing.
+Each mode module exports:
+- `meta` — `{ title, description }`, the mode's display name and a short plain-language rules blurb, used to render the instructions screen without `index.js` hardcoding per-mode copy.
+- `start(container, deck, onExit)` — mounts the entire rest of the mode's lifecycle (game screen, then results screen when the round ends) into `container`. All per-mode state (tally, streak, score, timer) is local to this call, so it resets automatically every time `start()` runs. `onExit` is called when the user clicks "Back to menu" (from the game screen or the results screen); a "Play again" button on the results screen simply calls `start()` again rather than going through `onExit`.
+
+`index.js` owns the menu screen and the `#app` container. Picking a mode clears the container and shows that mode's instructions screen, built from the mode's `meta`; clicking "Start" calls the mode's `start()`, passing the shared `deck` and `onExit`. Modes don't know about each other or about routing — they only render into the container they're given and call `onExit` when done.
 
 ## Data layer (`data.js`)
 
@@ -30,9 +34,10 @@ On page load, fetches both normalized `.txt` files:
 Each file is split on newlines. Empty lines and headlines over ~200 characters (a handful of outliers run to 900+ characters and would break the layout) are dropped. Both lists are shuffled once at load.
 
 Returns a `deck` object with:
-- `next(type)` — pops the next headline of a given label (`'real'` or `'satire'`), reshuffling and recycling from the start when a list is exhausted
 - `nextPair()` — one real + one satire headline for Duel mode, randomly assigned left/right
 - `nextEither()` — a single headline picked at random from either pool, tagged with its true label (for Classic and Survival)
+
+Both methods recycle and reshuffle a pool from the start once it's exhausted.
 
 Loading happens once at startup. The menu shows a loading message until both fetches resolve. If either fetch fails, the menu is replaced with a plain error message ("Couldn't load headlines — reload the page.") with no retry logic, since this is a static local fetch.
 
@@ -45,7 +50,9 @@ Loading happens once at startup. The menu shows a loading message until both fet
 
 ## Mode mechanics
 
-- **Classic** (`modes/classic.js`) — shows one headline via `deck.nextEither()` with "Real" / "Satire" buttons. On answer: reveal correct/incorrect plus the true label, update a session tally (`correct / total`), then show a "Next" button. Clicking "Next" loads the next headline. No fail state; plays until "Back to menu" is clicked.
+Every game screen (all three modes) has a persistent "Back to menu" button, in addition to whatever mode-specific controls it has, so a round can be abandoned mid-play at any time.
+
+- **Classic** (`modes/classic.js`) — shows one headline via `deck.nextEither()` with "Real" / "Satire" buttons. On answer: reveal correct/incorrect plus the true label, update a session tally (`correct / total`), then show a "Next" button. Clicking "Next" loads the next headline. No fail state and no results screen; plays until "Back to menu" is clicked.
 
 - **Duel** (`modes/duel.js`) — shows two headlines side by side via `deck.nextPair()` as clickable buttons, under the prompt "Which one is real?" On a correct pick, the streak increments and a new pair loads immediately. On a wrong pick, the round ends immediately and the results screen shows the final streak.
 
@@ -55,7 +62,7 @@ All three share the same button style and layout shell from `style.css`; only th
 
 ## Accessibility
 
-**Labels.** Buttons use short, on-their-own-meaningful text ("Real", "Satire", "Start", "Back to menu", "Play again"). In Duel mode, each headline is itself a `<button>` whose accessible name is the headline text; the "Which one is real?" prompt heading supplies the surrounding context, so no extra `aria-label` is layered on top of it.
+**Labels.** Buttons use short, on-their-own-meaningful text ("Real", "Satire", "Start", "Back to menu", "Play again"). In Duel mode, each headline is itself a `<button>` whose accessible name is the headline text; the "Which one is real?" prompt is a heading (`id="duel-prompt"`) referenced by `aria-describedby="duel-prompt"` on both headline buttons, so a screen reader announces "Which one is real?" as part of each button regardless of which one receives focus first.
 
 **ARIA (minimal, used where it earns its keep).**
 - Feedback after each answer (Classic/Survival: "Correct — this was real." / "Incorrect — this was satire.") is announced via an `aria-live="polite"` region, since focus does not move on answer submission (only on advancing to the next question).
