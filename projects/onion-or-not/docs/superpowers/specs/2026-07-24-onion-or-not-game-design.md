@@ -75,7 +75,7 @@ All three share the same button style and layout shell from `style.css`; only th
 - Clicking "Start" → game screen shown → focus on the first question:
   - Classic/Survival: focus on the headline heading.
   - Duel: focus on the **first** of the two headline buttons.
-- Submitting an answer (Classic: clicking "Next"; Duel/Survival: clicking an answer, which advances immediately) → focus moves to the next question as soon as it's shown, following the same per-mode target as above.
+- Clicking an answer in Duel/Survival advances immediately, so focus moves straight to the next question, following the same per-mode target as above. Clicking an answer in Classic does not move focus (feedback appears in place, announced via the `aria-live` region, and a "Next" button appears); focus only moves once "Next" is clicked, landing on the next headline heading.
 - Round ends (Duel miss / Survival timeout) → focus moves to the results heading.
 - Clicking "Back to menu" (from instructions, game, or results screen) → focus moves to the menu's `<h1>`.
 - Clicking "Play again" from results → treated the same as clicking "Start": focus moves to the first question.
