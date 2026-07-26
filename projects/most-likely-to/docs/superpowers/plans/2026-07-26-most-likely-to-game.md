@@ -4,9 +4,9 @@
 
 **Goal:** Build the "Most Likely To" browser party game per `docs/superpowers/specs/2026-07-26-most-likely-to-design.md`, matching the plain HTML/CSS/JS, no-build-step conventions of the sibling `catch-phrase` and `onion-or-not` projects in this repo.
 
-**Architecture:** Pure logic (name/target validation, scoring, prompt shuffling) lives in small standalone ES modules with unit tests, mirroring `onion-or-not/dom-utils.js`/`words.js` conventions. `js/main.js` is the DOM-rendering integration layer (menu → setup → game → results), verified manually rather than unit-tested, matching `onion-or-not/index.js`'s untested status. PWA installability (manifest, service worker, iOS install gate) is copied and adapted from `catch-phrase`.
+**Architecture:** Pure logic (name/target validation, scoring, prompt shuffling) lives in small standalone ES modules with unit tests, mirroring `onion-or-not/dom-utils.js`/`words.js` conventions. `index.js` is the DOM-rendering integration layer (menu → setup → game → results), verified manually rather than unit-tested, matching `onion-or-not/index.js`'s untested status. File layout is flat at the project root, matching the spec's architecture section and `onion-or-not`'s actual layout (not `catch-phrase`'s `js/` subdirectory — an earlier draft of this plan used a `js/` subdirectory without flagging the deviation from the spec; this revision conforms to the spec instead). PWA installability (manifest, service worker, iOS install gate) is copied and adapted from `catch-phrase`.
 
-**Tech Stack:** Vanilla JS (ES modules), `node --test` for unit tests, no build tooling, no npm dependencies.
+**Tech Stack:** Vanilla JS (ES modules), `node --test` for unit tests, no build tooling, no npm dependencies. Local manual verification uses a small dependency-free static file server copied from `catch-phrase/tools/serve.mjs`, not `npx http-server`.
 
 ---
 
@@ -14,16 +14,15 @@
 
 ```
 index.html
-style.css
-js/
-  dom-utils.js       escapeHtml, focusElement, announce (copied/adapted from onion-or-not + catch-phrase)
-  platform.js         isIOS / isIOSStandalone (copied verbatim from catch-phrase, untested there too)
-  validation.js       parsePlayerNames, validateSetup — pure, unit tested
-  scoring.js          createScoreboard — pure, unit tested
-  data.js             shuffle, createPromptPool, loadPrompts — pure/fetch-injectable, unit tested
-  main.js             screen rendering + wiring, manual verification only
+index.js            screen rendering + wiring, manual verification only
+data.js              shuffle, createPromptPool, loadPrompts — pure/fetch-injectable, unit tested
+dom-utils.js         escapeHtml, focusElement, announce (copied/adapted from onion-or-not + catch-phrase)
+platform.js          isIOS / isIOSStandalone (copied verbatim from catch-phrase, untested there too)
+validation.js        parsePlayerNames, validateSetup — pure, unit tested
+scoring.js           createScoreboard — pure, unit tested
 sw.js
 manifest.json
+style.css
 data/
   sfw.json
   nsfw.json
@@ -31,6 +30,7 @@ assets/
   icon-180.png, icon-192.png, icon-512.png (generated, not hand-authored)
 tools/
   make-icons.ps1
+  serve.mjs           dependency-free static file server for manual verification, copied from catch-phrase
 package.json
 tests/
   validation.test.mjs
@@ -44,13 +44,13 @@ tests/
 
 **Files:**
 - Create: `package.json`
-- Create: `.gitignore` (only if the repo doesn't already ignore stray OS files at the root — check first)
+- Create: `tools/serve.mjs`
 
 - [ ] **Step 1: Check for an existing root `.gitignore`**
 
 Run: `cat ../../.gitignore 2>/dev/null || echo "none"` (from `projects/most-likely-to`)
 
-If one exists at the repo root and covers general OS/editor cruft, skip creating a project-local one.
+If one exists at the repo root and covers general OS/editor cruft, no project-local `.gitignore` is needed.
 
 - [ ] **Step 2: Create `package.json`**
 
@@ -65,11 +65,44 @@ If one exists at the repo root and covers general OS/editor cruft, skip creating
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Create `tools/serve.mjs`**
+
+Copied verbatim from `catch-phrase/tools/serve.mjs`, port changed to avoid clashing if both projects are ever served at once.
+
+```js
+import http from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { extname, join, normalize } from 'node:path';
+
+const PORT = 8124;
+const TYPES = {
+	'.html': 'text/html',
+	'.js': 'text/javascript',
+	'.css': 'text/css',
+	'.json': 'application/json',
+	'.png': 'image/png',
+};
+const root = process.cwd();
+
+http.createServer(async (req, res) => {
+	const requestedPath = req.url.split('?')[0];
+	const path = requestedPath === '/' ? '/index.html' : requestedPath;
+	try {
+		const file = await readFile(join(root, normalize(decodeURIComponent(path))));
+		res.writeHead(200, { 'Content-Type': TYPES[extname(path)] || 'application/octet-stream' });
+		res.end(file);
+	} catch {
+		res.writeHead(404);
+		res.end('not found');
+	}
+}).listen(PORT, () => console.log(`Serving on http://localhost:${PORT}`));
+```
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git add package.json
-git commit -m "Scaffold most-likely-to package.json"
+git add package.json tools/serve.mjs
+git commit -m "Scaffold most-likely-to package.json and dev server"
 ```
 
 ---
@@ -77,11 +110,13 @@ git commit -m "Scaffold most-likely-to package.json"
 ### Task 2: `dom-utils.js`
 
 **Files:**
-- Create: `js/dom-utils.js`
+- Create: `dom-utils.js`
 
-No unit tests for this file — `escapeHtml`/`focusElement` touch the DOM and aren't unit-tested in either sibling project (`onion-or-not/dom-utils.js` has no corresponding test file); `announce`'s timer-based clearing is the same story. Verified manually in Task 12.
+No unit tests for this file — `escapeHtml`/`focusElement` touch the DOM and aren't unit-tested in either sibling project (`onion-or-not/dom-utils.js` has no corresponding test file); `announce`'s timer-based clearing is the same story. Verified manually in Task 15.
 
-- [ ] **Step 1: Write `js/dom-utils.js`**
+`escapeHtml` is only ever used for text-node content (inside `<h2>...</h2>`, `<li>...</li>`, etc.), never inside an HTML attribute — it escapes `&`, `<`, `>` but not `"`, so interpolating its output into a quoted attribute would be unsafe. Task 14 builds the one place that needs a data attribute derived from user input (`data-player`) via DOM properties instead of string templating, specifically to avoid that trap.
+
+- [ ] **Step 1: Write `dom-utils.js`**
 
 ```js
 export function escapeHtml(text) {
@@ -111,7 +146,7 @@ export function announce(statusEl, text) {
 - [ ] **Step 2: Commit**
 
 ```bash
-git add js/dom-utils.js
+git add dom-utils.js
 git commit -m "Add dom-utils.js"
 ```
 
@@ -120,11 +155,11 @@ git commit -m "Add dom-utils.js"
 ### Task 3: `platform.js`
 
 **Files:**
-- Create: `js/platform.js`
+- Create: `platform.js`
 
-Copied verbatim from `catch-phrase/js/platform.js`, which also has no unit test (UA sniffing, not worth mocking `navigator.userAgent` for). Verified manually in Task 12 (install gate step).
+Copied verbatim from `catch-phrase/js/platform.js`, which also has no unit test (UA sniffing, not worth mocking `navigator.userAgent` for). Verified manually in Task 15 (install gate step).
 
-- [ ] **Step 1: Write `js/platform.js`**
+- [ ] **Step 1: Write `platform.js`**
 
 ```js
 export function isIOS() {
@@ -143,7 +178,7 @@ export function isIOSStandalone() {
 - [ ] **Step 2: Commit**
 
 ```bash
-git add js/platform.js
+git add platform.js
 git commit -m "Add platform.js"
 ```
 
@@ -152,7 +187,7 @@ git commit -m "Add platform.js"
 ### Task 4: `validation.js`
 
 **Files:**
-- Create: `js/validation.js`
+- Create: `validation.js`
 - Test: `tests/validation.test.mjs`
 
 - [ ] **Step 1: Write the failing tests**
@@ -160,7 +195,7 @@ git commit -m "Add platform.js"
 ```js
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parsePlayerNames, validateSetup } from "../js/validation.js";
+import { parsePlayerNames, validateSetup } from "../validation.js";
 
 test("parsePlayerNames trims lines and drops blank ones", () => {
 	assert.deepEqual(
@@ -212,9 +247,9 @@ test("validateSetup accepts valid input", () => {
 - [ ] **Step 2: Run the tests and confirm they fail**
 
 Run: `npm test` (from `projects/most-likely-to`)
-Expected: FAIL — `Cannot find module '../js/validation.js'`
+Expected: FAIL — `Cannot find module '../validation.js'`
 
-- [ ] **Step 3: Write `js/validation.js`**
+- [ ] **Step 3: Write `validation.js`**
 
 ```js
 export function parsePlayerNames(rawText) {
@@ -257,7 +292,7 @@ Expected: PASS (7 tests)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add js/validation.js tests/validation.test.mjs
+git add validation.js tests/validation.test.mjs
 git commit -m "Add setup validation logic with tests"
 ```
 
@@ -266,7 +301,7 @@ git commit -m "Add setup validation logic with tests"
 ### Task 5: `scoring.js`
 
 **Files:**
-- Create: `js/scoring.js`
+- Create: `scoring.js`
 - Test: `tests/scoring.test.mjs`
 
 - [ ] **Step 1: Write the failing tests**
@@ -274,7 +309,7 @@ git commit -m "Add setup validation logic with tests"
 ```js
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createScoreboard } from "../js/scoring.js";
+import { createScoreboard } from "../scoring.js";
 
 test("addPoint increments only the named player", () => {
 	const board = createScoreboard(["Sarah", "Mike"]);
@@ -321,9 +356,9 @@ test("sortedEntries keeps setup order for players tied at the same score", () =>
 - [ ] **Step 2: Run the tests and confirm they fail**
 
 Run: `npm test`
-Expected: FAIL — `Cannot find module '../js/scoring.js'`
+Expected: FAIL — `Cannot find module '../scoring.js'`
 
-- [ ] **Step 3: Write `js/scoring.js`**
+- [ ] **Step 3: Write `scoring.js`**
 
 ```js
 export function createScoreboard(names) {
@@ -357,7 +392,7 @@ Expected: PASS (5 tests)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add js/scoring.js tests/scoring.test.mjs
+git add scoring.js tests/scoring.test.mjs
 git commit -m "Add scoreboard logic with tests"
 ```
 
@@ -366,15 +401,17 @@ git commit -m "Add scoreboard logic with tests"
 ### Task 6: `data.js`
 
 **Files:**
-- Create: `js/data.js`
+- Create: `data.js`
 - Test: `tests/data.test.mjs`
+
+Note on the mock in Step 1: matching on `url.includes("sfw")` is wrong because `"data/nsfw.json".includes("sfw")` is also `true` ("nsfw" contains "sfw" as a substring) — both fetches would hit the same branch. The mock below matches on the exact URL instead.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```js
 import test from "node:test";
 import assert from "node:assert/strict";
-import { shuffle, createPromptPool, loadPrompts } from "../js/data.js";
+import { shuffle, createPromptPool, loadPrompts } from "../data.js";
 
 test("shuffle returns the same elements in some order", () => {
 	const result = shuffle(["a", "b", "c"], () => 0.5);
@@ -396,8 +433,9 @@ test("createPromptPool reshuffles and keeps drawing after exhaustion", () => {
 
 test("loadPrompts returns sfw, nsfw, and their concatenation as anythingGoes", async () => {
 	const fetchFn = async (url) => {
-		if (url.includes("sfw")) return { ok: true, json: async () => ["s1", "s2"] };
-		return { ok: true, json: async () => ["n1"] };
+		if (url === "data/sfw.json") return { ok: true, json: async () => ["s1", "s2"] };
+		if (url === "data/nsfw.json") return { ok: true, json: async () => ["n1"] };
+		throw new Error(`unexpected url: ${url}`);
 	};
 	const { sfw, nsfw, anythingGoes } = await loadPrompts(fetchFn);
 	assert.deepEqual(sfw, ["s1", "s2"]);
@@ -406,7 +444,7 @@ test("loadPrompts returns sfw, nsfw, and their concatenation as anythingGoes", a
 });
 
 test("loadPrompts throws if either fetch fails", async () => {
-	const fetchFn = async (url) => ({ ok: !url.includes("nsfw"), json: async () => [] });
+	const fetchFn = async (url) => ({ ok: url !== "data/nsfw.json", json: async () => [] });
 	await assert.rejects(() => loadPrompts(fetchFn));
 });
 ```
@@ -414,9 +452,9 @@ test("loadPrompts throws if either fetch fails", async () => {
 - [ ] **Step 2: Run the tests and confirm they fail**
 
 Run: `npm test`
-Expected: FAIL — `Cannot find module '../js/data.js'`
+Expected: FAIL — `Cannot find module '../data.js'`
 
-- [ ] **Step 3: Write `js/data.js`**
+- [ ] **Step 3: Write `data.js`**
 
 ```js
 export function shuffle(list, randomFn = Math.random) {
@@ -464,7 +502,7 @@ Expected: PASS (5 tests)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add js/data.js tests/data.test.mjs
+git add data.js tests/data.test.mjs
 git commit -m "Add prompt pool and loading logic with tests"
 ```
 
@@ -649,7 +687,7 @@ Structure adapted from `catch-phrase/index.html` (PWA meta tags, install gate) a
 	</section>
 	<main id="app" hidden></main>
 	<div id="status" role="status"></div>
-	<script type="module" src="js/main.js"></script>
+	<script type="module" src="index.js"></script>
 </body>
 </html>
 ```
@@ -822,12 +860,12 @@ const ASSETS = [
 	'.',
 	'index.html',
 	'style.css',
-	'js/dom-utils.js',
-	'js/platform.js',
-	'js/validation.js',
-	'js/scoring.js',
-	'js/data.js',
-	'js/main.js',
+	'dom-utils.js',
+	'platform.js',
+	'validation.js',
+	'scoring.js',
+	'data.js',
+	'index.js',
 	'data/sfw.json',
 	'data/nsfw.json',
 	'manifest.json',
@@ -870,14 +908,18 @@ git commit -m "Add service worker"
 
 ---
 
-### Task 14: `js/main.js` — full screen wiring
+### Task 14: `index.js` — full screen wiring
 
 **Files:**
-- Create: `js/main.js`
+- Create: `index.js`
 
 This is the DOM integration layer: install gate, service worker registration, and the menu → setup → game → results screen flow from the spec. Not unit-tested (matches `onion-or-not/index.js`'s untested status) — verified manually in Task 15.
 
-- [ ] **Step 1: Write `js/main.js`**
+Two details worth calling out before writing the code:
+- **Player buttons are built with `document.createElement`, not string-templated HTML.** `escapeHtml` only escapes `&`/`<`/`>` (it's designed for text-node content, not attributes), so interpolating a player name into a `data-player="..."` string would let a name containing `"` break out of the attribute and corrupt the markup. Setting `.dataset.player` as a property, and the label via `.textContent`, sidesteps this entirely — no escaping needed because there's no HTML parsing step for user data.
+- **`renderSetup` preserves whatever was typed when validation fails**, by threading the raw textarea/number-input text back in and setting `.value` on re-render, so a failed Continue doesn't force retyping every name.
+
+- [ ] **Step 1: Write `index.js`**
 
 ```js
 import { escapeHtml, focusElement, announce } from "./dom-utils.js";
@@ -942,17 +984,23 @@ function renderMenu(prompts) {
 	});
 }
 
-function renderSetup(category, prompts, errorMessage = "") {
+function renderSetup(category, prompts, previousNamesText = "", previousTargetScoreText = "5", errorMessage = "") {
 	app.innerHTML = `
 		<h2>${category.label}</h2>
 		<label for="player-names">Player names (one per line)</label>
 		<textarea id="player-names" rows="8"></textarea>
 		<label for="target-score">Target score</label>
-		<input type="number" id="target-score" min="1" value="5">
+		<input type="number" id="target-score" min="1">
 		${errorMessage ? `<p class="error">${escapeHtml(errorMessage)}</p>` : ""}
 		<button type="button" data-action="continue">Continue</button>
 		<button type="button" data-action="back">Back</button>
 	`;
+	// Set via .value rather than templating into the HTML string: these came from
+	// user input on a previous attempt and might contain characters that would
+	// break the surrounding markup if interpolated directly (see index.js's note
+	// on escapeHtml not being attribute-safe).
+	app.querySelector("#player-names").value = previousNamesText;
+	app.querySelector("#target-score").value = previousTargetScoreText;
 	focusElement(app.querySelector("h2"));
 	app.querySelector('[data-action="continue"]').addEventListener("click", () => {
 		const namesText = app.querySelector("#player-names").value;
@@ -960,7 +1008,7 @@ function renderSetup(category, prompts, errorMessage = "") {
 		const result = validateSetup(namesText, targetScoreText);
 		if (!result.valid) {
 			announce(statusEl, result.error);
-			renderSetup(category, prompts, result.error);
+			renderSetup(category, prompts, namesText, targetScoreText, result.error);
 			return;
 		}
 		renderGame(category, prompts, result.names, result.targetScore);
@@ -978,18 +1026,18 @@ function renderGame(category, prompts, names, targetScore) {
 		const prompt = pool.next();
 		app.innerHTML = `
 			<h2>Most likely to... ${escapeHtml(prompt)}</h2>
-			<div>
-				${names.map(name => {
-					const score = scoreboard.getScore(name);
-					return `<button type="button" data-player="${escapeHtml(name)}">${escapeHtml(name)}, ${score} point${score === 1 ? "" : "s"}</button>`;
-				}).join("")}
-			</div>
+			<div id="player-buttons"></div>
 			<button type="button" data-action="quit">Back to menu</button>
 		`;
-		focusElement(app.querySelector("h2"));
-		app.querySelectorAll("[data-player]").forEach(button => {
+		const playerButtonsContainer = app.querySelector("#player-buttons");
+		names.forEach(name => {
+			const score = scoreboard.getScore(name);
+			const button = document.createElement("button");
+			button.type = "button";
+			button.dataset.player = name;
+			button.textContent = `${name}, ${score} point${score === 1 ? "" : "s"}`;
 			button.addEventListener("click", () => {
-				scoreboard.addPoint(button.dataset.player);
+				scoreboard.addPoint(name);
 				const winner = scoreboard.getWinner(targetScore);
 				if (winner) {
 					renderResults(category, prompts, names, targetScore, scoreboard, winner);
@@ -997,7 +1045,9 @@ function renderGame(category, prompts, names, targetScore) {
 					renderRound();
 				}
 			});
+			playerButtonsContainer.appendChild(button);
 		});
+		focusElement(app.querySelector("h2"));
 		app.querySelector('[data-action="quit"]').addEventListener("click", () => {
 			if (confirmQuit()) {
 				renderMenu(prompts);
@@ -1054,8 +1104,8 @@ main();
 - [ ] **Step 2: Commit**
 
 ```bash
-git add js/main.js
-git commit -m "Add main.js screen flow and PWA wiring"
+git add index.js
+git commit -m "Add index.js screen flow and PWA wiring"
 ```
 
 ---
@@ -1071,8 +1121,8 @@ Expected: PASS (all tests from Tasks 4–6)
 
 - [ ] **Step 2: Serve the app locally and open it in a browser**
 
-Run (from `projects/most-likely-to`): `npx http-server -p 8080` (or any static file server available)
-Open `http://localhost:8080` in a browser.
+Run (from `projects/most-likely-to`): `node tools/serve.mjs`
+Open `http://localhost:8124` in a browser.
 
 - [ ] **Step 3: Confirm the menu**
 
@@ -1082,9 +1132,9 @@ Menu loads, focus lands on the "Most Likely To" heading, category buttons appear
 
 For each of SFW, NSFW, Anything Goes: enter 2+ names, set target score to 2, click through several prompts, confirm scores update in the button labels, reach the results screen, confirm the scoreboard is sorted highest-to-lowest, click "Play again" and confirm scores reset with a fresh prompt.
 
-- [ ] **Step 5: Confirm setup validation**
+- [ ] **Step 5: Confirm setup validation, including that entered text survives a failed Continue**
 
-On the setup screen: try fewer than 2 names, duplicate names (any case), and an invalid target score (blank, 0, negative, non-numeric) — each should show an inline error and announce it, without advancing.
+On the setup screen: try fewer than 2 names, duplicate names (any case), and an invalid target score (blank, 0, negative, non-numeric) — each should show an inline error and announce it, without advancing, and without clearing the names/target score already typed in.
 
 - [ ] **Step 6: Confirm the quit-confirmation dialog**
 
