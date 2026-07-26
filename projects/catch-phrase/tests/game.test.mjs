@@ -34,13 +34,24 @@ test('timer press from idle starts a round and shows a word', () => {
 	assert.equal(log.starts, 1);
 });
 
-test('next advances the word during a round and does nothing otherwise', () => {
+test('next advances the word during a round and does nothing from idle', () => {
 	const { game, log } = harness();
 	game.pressNext();
 	assert.deepEqual(log.words, []);
 	game.pressTimer();
 	game.pressNext();
 	assert.deepEqual(log.words, ['word-1', 'word-2']);
+});
+
+test('next starts the round when the timer is stopped/ended', () => {
+	const { game, log } = harness();
+	game.pressTimer();
+	game.pressTimer();
+	assert.equal(game.state, 'ended');
+	game.pressNext();
+	assert.equal(game.state, 'round');
+	assert.equal(log.starts, 2);
+	assert.equal(log.words.at(-1), 'word-2');
 });
 
 test('expiry ends the round and shows Time\'s up on the display only', () => {

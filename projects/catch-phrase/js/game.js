@@ -32,6 +32,10 @@ export function createGame({ categories, drawWord, timer, display, announce, upd
 			}
 		},
 		pressNext() {
+			if (state === 'ended') {
+				beginRound();
+				return;
+			}
 			if (state !== 'round') return;
 			display(drawWord(categoryIndex));
 		},
