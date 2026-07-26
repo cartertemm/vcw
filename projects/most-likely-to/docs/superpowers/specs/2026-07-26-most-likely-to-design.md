@@ -37,15 +37,17 @@ Two static JSON files, each a flat array of prompt completions (the fixed text "
 
 Prompt content is adapted from the connectioncards.app and Cosmopolitan "most likely to" lists (paraphrased, not copied verbatim), split by tone into the two files, supplemented with originals — especially for NSFW, per your request.
 
+Both JSON files are loaded via `fetch()` at startup, same as onion-or-not's `data.js`. The menu shows a loading message until both fetches resolve; if either fails, the menu is replaced with a plain error message ("Couldn't load prompts — reload the page.") with no retry logic, since this is a static local fetch.
+
 ## Screen flow
 
 1. **Menu** — heading "Most Likely To", three category buttons: SFW, Anything Goes, NSFW.
-2. **Setup** — category name in the heading, a multi-line `<textarea>` for player names (one per line), a number input for target score (default 5), "Continue" and "Back" buttons.
-   - Continue validates at least 2 non-blank lines after trimming. On failure, an inline error message appears and is announced via the status region; the screen does not advance.
+2. **Setup** — category name in the heading, a multi-line `<textarea>` for player names (one per line), a number input for target score (default 5, minimum 1), "Continue" and "Back" buttons.
+   - Continue validates: at least 2 non-blank lines after trimming, no two names equal after trimming and case-folding, and a target score of at least 1 (blank/non-numeric/less-than-1 input is treated as invalid). Any failure shows an inline error message announced via the status region; the screen does not advance. Only one error shows at a time, in that check order.
    - Back returns to the menu.
-3. **Game** — heading reads "Most likely to... `<prompt>`". Below it, one button per player labeled `"<Name>, <N> point(s)"` reflecting that player's current score. A persistent "Back to menu" button is always present.
-   - Clicking a player's button adds 1 point to them. If no one has reached the target score, the next prompt renders immediately (silent advance, no separate point announcement — the updated button label is the only feedback). If a player's score now meets or exceeds the target, the results screen renders instead.
-4. **Results** — heading names whichever player reached the target (e.g. "Sarah reached 5 points!"), a final scoreboard listing every player's score, and two buttons: "Play again" (same players, same category, same target score; scores reset and prompts reshuffle, goes straight to a fresh game screen) and "Back to menu".
+3. **Game** — heading reads "Most likely to... `<prompt>`". Below it, one button per player labeled `"<Name>, <N> point(s)"` reflecting that player's current score. A persistent "Back to menu" button is always present. There is no cap on the number of players; the textarea can hold as many names as fit.
+   - Clicking a player's button adds 1 point to them. Since only one player's score changes per click, at most one player can cross the target on a given click, so there's never a same-turn tie to resolve. If no one has reached the target score, the next prompt renders immediately (silent advance, no separate point announcement — the updated button label is the only feedback; this is a deliberate choice, not an oversight, so a screen reader hears the next prompt but not a per-click "point added" message). If the clicked player's score now meets or exceeds the target, the results screen renders instead.
+4. **Results** — heading names whichever player reached the target (e.g. "Sarah reached 5 points!"), a final scoreboard listing every player's score sorted highest-to-lowest (ties broken by the order names were entered in setup), and two buttons: "Play again" (same players, same category, same target score; scores reset and prompts reshuffle, goes straight to a fresh game screen) and "Back to menu".
 
 ## Accessibility
 
@@ -68,6 +70,6 @@ Prompt content is adapted from the connectioncards.app and Cosmopolitan "most li
 Manual verification in a browser (static page, no test framework beyond what already exists in sibling projects):
 1. Open `index.html`, confirm the menu loads with all three category buttons.
 2. For each category: enter 2+ names, set a small target score (e.g. 2), play through to a results screen, confirm "Play again" resets scores and reshuffles prompts, and confirm "Back to menu" works from setup, game, and results screens.
-3. Confirm the Continue validation blocks fewer than 2 names and announces the error.
+3. Confirm the Continue validation blocks fewer than 2 names, duplicate names, and an invalid (blank/zero/negative) target score, each announcing an error.
 4. Verify focus lands on the documented target at each transition using keyboard-only navigation and a screen reader spot check (e.g. NVDA or VoiceOver) for at least one full playthrough.
 5. Confirm the "Anything Goes" category draws prompts from both `sfw.json` and `nsfw.json`.
