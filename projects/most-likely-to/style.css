@@ -1,0 +1,44 @@
+body {
+	font-family: system-ui, sans-serif;
+	max-width: 40rem;
+	margin: 2rem auto;
+	padding: 0 1rem;
+	line-height: 1.5;
+}
+
+button {
+	font-size: 1rem;
+	padding: 0.5rem 1rem;
+	margin: 0.25rem 0.25rem 0.25rem 0;
+	cursor: pointer;
+}
+
+textarea, input[type="number"] {
+	font-size: 1rem;
+	display: block;
+	margin: 0.5rem 0 1rem;
+}
+
+textarea {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+label {
+	display: block;
+	margin-top: 0.75rem;
+	font-weight: bold;
+}
+
+.error {
+	color: #b00020;
+}
+
+h1, h2 {
+	outline: none;
+}
+
+h1:focus-visible, h2:focus-visible {
+	outline: 2px solid #7c2d92;
+	outline-offset: 2px;
+}
