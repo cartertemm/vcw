@@ -6,7 +6,7 @@ This is the monorepo wherein I plan to VibeCode at least one new thing every wee
 
 Some ideas might be useful, some weird, others may never be finished. I'm OK with that.
 
-This is the only repository on my GitHub profile where I let AI agents write the majority of the code. For every other repo, you can trust that I have either written and/or thoroughly reviewed every line.
+This is the only repository on my GitHub profile where I let AI agents write the majority of the code. For every other repo I maintain, you can trust that I have written and/or thoroughly reviewed every line.
 
 ## Licensing
 

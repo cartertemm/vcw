@@ -4,7 +4,8 @@ This document tracks both the status of the things that I've built (OK fine my a
 
 ## already Built
 
-- Catch Phrase Companion. A screen reader first web app that emulates the Hasbro Electronic Catch Phrase handheld button for button, extended with an "after dark" NSFW category.- Data Encoder/Decoder. A minimalist single-file web application for encoding and decoding text in 40+ formats. Sort of like an accessibility first Cyberchef with only the most common input/output formats.
+- Catch Phrase Companion. A screen reader first web app that emulates the Hasbro Electronic Catch Phrase handheld button for button, extended with an "after dark" NSFW category.
+- Data Encoder/Decoder. A minimalist single-file web application for encoding and decoding text in 40+ formats. Sort of like an accessibility first Cyberchef with only the most common input/output formats.
 - Falsehoods About Time with Explanations. Explanations for all 112 things that programmers falsely believe about time.
 - Focus. Brainwave entrainment and soundscape sculpting. A single-file, zero-dependency web app inspired by papers on the impact of sonic frequencies on mood (creativity, focus and concentration, etc). Sounded better on paper than in reality, but sometimes you gotta try doing something to know that you're in way over your head.
 - Hello World. Welcome to Vibe Code Weekly!
