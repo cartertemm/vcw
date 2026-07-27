@@ -1,5 +1,7 @@
 # VCW
 
+[Status and Future Plans](status.md)
+
 This is the monorepo wherein I plan to VibeCode at least one new thing every week. Lofty goal, so we'll see what happens.
 
 Some ideas might be useful, some weird, others may never be finished. I'm OK with that.
