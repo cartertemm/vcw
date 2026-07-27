@@ -4,6 +4,8 @@ import { validateSetup } from "./validation.js";
 import { createScoreboard } from "./scoring.js";
 import { createPromptPool, loadPrompts } from "./data.js";
 
+// A trusted local constant, unlike every other value interpolated into a
+// template string in this file — that's why c.label below skips escapeHtml.
 const CATEGORIES = [
 	{ key: "sfw", label: "SFW" },
 	{ key: "nsfw", label: "NSFW" },
