@@ -1,3 +1,5 @@
+// addPoint/getScore assume `name` is one of the names the scoreboard was created
+// with; passing an unknown name silently produces NaN rather than an error.
 export function createScoreboard(names) {
 	const scores = new Map(names.map(name => [name, 0]));
 
