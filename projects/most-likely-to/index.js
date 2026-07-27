@@ -105,6 +105,7 @@ function renderGame(category, prompts, names, targetScore) {
 		app.innerHTML = `
 			<h2>Most likely to... ${escapeHtml(prompt)}</h2>
 			<div id="player-buttons"></div>
+			<button type="button" data-action="skip">Skip</button>
 			<button type="button" data-action="quit">Back to menu</button>
 		`;
 		const playerButtonsContainer = app.querySelector("#player-buttons");
@@ -126,6 +127,9 @@ function renderGame(category, prompts, names, targetScore) {
 			playerButtonsContainer.appendChild(button);
 		});
 		focusElement(app.querySelector("h2"));
+		app.querySelector('[data-action="skip"]').addEventListener("click", () => {
+			renderRound();
+		});
 		app.querySelector('[data-action="quit"]').addEventListener("click", () => {
 			if (confirmQuit()) {
 				renderMenu(prompts);
