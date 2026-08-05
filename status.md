@@ -16,6 +16,7 @@ This document tracks both the status of the things that I've built (OK fine my a
 
 ## Ideas
 
+- Game center/arcade: We are making a lot of games that run on mobile/desktop/etc. Many of them use the same platform/SPA/installable home screen app scaffold. It only makes sense to build out a generic directory of them so that people do not have to worry about adding new ones or changing their home screen icons.
 - Trump or not? Determine whether a quote was said by Donald Trump, or someone else, with full attribution for each quote. 
 - Patent or nonsense? Identify whether an absurd sounding patent is real or not. Data gathering would be possible via USPTO full-text search.
 - Florida Man or fiction? Same style as the above.
