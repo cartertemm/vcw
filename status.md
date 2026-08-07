@@ -41,3 +41,4 @@ This document tracks both the status of the things that I've built (OK fine my a
 - Consensus. Everyone secretly answers a numeric question on their own phone ("what percent of people have admitted to crying at work?", "What percent of American marriages end in divorce?", etc). The app reveals the spread and the real statistic.
 - Generic guessing engine with category packs. Most of these short guessing games use a version of the same skeleton (x or y), so we should really stop re-inventing it.
 - Twenty questions. Given a word (a thing or an event probably), the crowd has to guess it. How long does it take?
+- Blind/Visually impaired IQ test: Though the quality of so called IQ tests is disputed, people enjoy taking them. There are none that I have ever been able to find that do not rely on undescribed images. Research is needed to determine the best way to do this.
