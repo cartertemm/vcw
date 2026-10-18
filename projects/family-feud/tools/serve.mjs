@@ -27,7 +27,7 @@ http.createServer(async (req, res) => {
 	}
 }).listen(PORT, () => {
 	console.log(`Serving on http://localhost:${PORT}`);
-	const tailscale = spawn('tailscale', ['serve', String(PORT)], { stdio: 'inherit' });
+	const tailscale = spawn('tailscale', ['funnel', String(PORT)], { stdio: 'inherit' });
 	tailscale.on('error', () => console.log('tailscale not found, serving locally only'));
 	process.on('SIGINT', () => {
 		tailscale.kill();
