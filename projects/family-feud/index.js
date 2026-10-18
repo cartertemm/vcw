@@ -185,8 +185,8 @@ function renderError() {
 function renderMenu() {
 	show(`
 		<h1 class="logo">Family Feud</h1>
-		<p>Two families, one host, and a hundred people who already answered the survey. Whoever hosts holds this phone, reads each question out loud, and taps an answer when a family gets it.</p>
-		<p>If you use a screen reader, wear one earbud. It reads the hidden answers to you, so only you hear them.</p>
+		<p>Pick someone to host and split everyone else into two families. The host reads the questions off this phone and taps each answer someone gets right.</p>
+		<p>If you use a screen reader, put one earbud in so nobody else hears the answers.</p>
 		<button type="button" class="primary" data-action="new">New game</button>
 	`);
 	on("new", () => {
@@ -455,7 +455,7 @@ function renderFastMoneyIntro(game, fm, player) {
 	show(`
 		<h2>Fast Money, player ${player + 1}</h2>
 		<p>${escapeHtml(instructions)}</p>
-		<p>Read each question out loud and tap the answer that matches what they say. If nothing matches, tap No match. If they want to skip one, tap Pass and it comes back at the end. The points stay hidden until the reveal.</p>
+		<p>Read each question and tap the answer that matches what they say, or No match if it's not on the list. Pass saves a question for the end.</p>
 		<p>${escapeHtml(teamDoes(team, "needs", "need"))} ${FAST_MONEY_GOAL} points between both players to win.</p>
 		<button type="button" class="primary" data-action="go">Start the clock</button>
 		${quitButtonHtml()}
