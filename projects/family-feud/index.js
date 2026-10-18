@@ -287,7 +287,7 @@ function renderFaceOffAnswer(game, round, faceOff, message) {
 		if (faceOff.firstRank === undefined) {
 			faceOff.firstRank = rank;
 			if (rank === 0) {
-				renderPlayOrPass(game, round, faceOff.first, `${revealMessage(round.board, 0)} That's the top answer!`);
+				renderPlayOrPass(game, round, faceOff.first, `${revealMessage(round.board, 0)} You can't beat that, so ${teamDoes(game.teams[1 - faceOff.first].name, "doesn't", "don't", false)} get a turn.`);
 				return;
 			}
 			const other = game.teams[1 - faceOff.first].name;
@@ -499,7 +499,7 @@ function renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish
 		</div>
 		<button type="button" class="strike-button" data-action="no-match">No match</button>
 		${player === 1 ? `<button type="button" data-action="duplicate">Duplicate</button>` : ""}
-		<button type="button" data-action="pass">Pass</button>
+		${queue.length > 1 ? `<button type="button" data-action="pass">Pass</button>` : ""}
 		${quitButtonHtml()}
 	`, message ? ".message" : "h2");
 
