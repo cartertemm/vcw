@@ -41,14 +41,14 @@ export function createBoard(question) {
 export function validateSetup(teamOneText, teamTwoText, targetText) {
 	const teams = [teamOneText.trim(), teamTwoText.trim()];
 	if (teams.some(name => name === "")) {
-		return { valid: false, error: "Enter a name for both teams." };
+		return { valid: false, error: "Give both families a name." };
 	}
 	if (teams[0].toLowerCase() === teams[1].toLowerCase()) {
-		return { valid: false, error: "The two teams need different names." };
+		return { valid: false, error: "The two families need different names." };
 	}
 	const target = Number(targetText);
 	if (!Number.isInteger(target) || target < 1) {
-		return { valid: false, error: "The target score must be a whole number above 0." };
+		return { valid: false, error: "Points needed to win has to be a whole number, like 300." };
 	}
 	return { valid: true, teams, target };
 }

@@ -14,7 +14,10 @@ import {
 	validateSetup,
 } from "./game.js";
 
-const MULTIPLIER_NAMES = { 1: "Single points", 2: "Double points", 3: "Triple points" };
+const MULTIPLIER_NAMES = { 1: "Regular points this round.", 2: "Double points this round!", 3: "Triple points this round!" };
+const MULTIPLIER_WORDS = { 2: "double", 3: "triple" };
+const STRIKE_STATUS = ["No strikes yet.", "They have 1 strike.", "They have 2 strikes. One more and the other family can steal."];
+const STRIKE_CALLS = [null, "That's a strike.", "That's strike two."];
 const TICK_SECONDS = 5;
 const ONE_SECOND_MS = 1000;
 const STRIKE_FLASH_MS = 900;
@@ -90,7 +93,7 @@ function quitButtonHtml() {
 function hostControlsHtml() {
 	return `
 		<div class="host-controls">
-			<label class="inline"><input type="checkbox" id="show-hidden"> Show hidden answers on screen</label>
+			<label class="inline"><input type="checkbox" id="show-hidden"> Show the hidden answers on screen (for a sighted host)</label>
 			${quitButtonHtml()}
 		</div>
 	`;
@@ -121,7 +124,7 @@ function boardHtml(board, mode) {
 			return `<li class="tile revealed">${tileContentHtml(answer, i)}</li>`;
 		}
 		if (mode === "final") {
-			return `<li class="tile revealed unfound">${tileContentHtml(answer, i)}<span class="sr-only">, not found</span></li>`;
+			return `<li class="tile revealed unfound">${tileContentHtml(answer, i)}<span class="sr-only">, nobody got this one</span></li>`;
 		}
 		const content = `${tileContentHtml(answer, i)}<span class="sr-only">, hidden</span>`;
 		if (mode === "tap") {
@@ -155,22 +158,22 @@ function onAnswerTap(handler) {
 
 function revealMessage(board, index) {
 	const answer = board.question.answers[index];
-	return `Number ${index + 1}, ${answer.text}, ${points(answer.points)}.`;
+	return `${answer.text}! That's the number ${index + 1} answer, worth ${points(answer.points)}.`;
 }
 
 function renderLoading() {
-	show(`<h1>Family Feud</h1><p>Loading surveys...</p>`);
+	show(`<h1>Family Feud</h1><p>Loading the surveys...</p>`);
 }
 
 function renderError() {
-	show(`<h1>Family Feud</h1><p>Could not load the surveys. Reload the page.</p>`);
+	show(`<h1>Family Feud</h1><p>We couldn't load the surveys. Try reloading the page.</p>`);
 }
 
 function renderMenu() {
 	show(`
 		<h1 class="logo">Family Feud</h1>
-		<p>Two teams. One host. One hundred people surveyed. The host holds this device, reads each question, and taps the answers as the teams say them.</p>
-		<p>Tip: the hidden answers are read by your screen reader, so use one earbud to keep them secret.</p>
+		<p>Two families, one host, and a hundred people who already answered the survey. Whoever hosts holds this phone, reads each question out loud, and taps an answer when a family gets it.</p>
+		<p>If you use a screen reader, wear one earbud. It reads the hidden answers to you, so only you hear them.</p>
 		<button type="button" class="primary" data-action="new">New game</button>
 	`);
 	on("new", () => {
@@ -181,15 +184,15 @@ function renderMenu() {
 
 function renderSetup(previous = { one: "", two: "", target: String(DEFAULT_TARGET) }, errorMessage = "") {
 	show(`
-		<h2>New game</h2>
-		<label for="team-one">First family</label>
+		<h2>Who's playing?</h2>
+		<label for="team-one">First family's name</label>
 		<input type="text" id="team-one" autocomplete="off">
-		<label for="team-two">Second family</label>
+		<label for="team-two">Second family's name</label>
 		<input type="text" id="team-two" autocomplete="off">
-		<label for="target">Points to win and play Fast Money</label>
+		<label for="target">Points needed to win (the winners play Fast Money)</label>
 		<input type="number" id="target" min="1" inputmode="numeric">
 		${errorMessage ? `<p class="error">${escapeHtml(errorMessage)}</p>` : ""}
-		<button type="button" class="primary" data-action="start">Start game</button>
+		<button type="button" class="primary" data-action="start">Let's play</button>
 		<button type="button" data-action="back">Back</button>
 	`);
 	app.querySelector("#team-one").value = previous.one;
@@ -224,7 +227,7 @@ function renderRoundIntro(game) {
 		<h2>Round ${game.round}</h2>
 		<p class="multiplier">${MULTIPLIER_NAMES[multiplier]}</p>
 		${scoresHtml(game)}
-		<p>Call one player from each family up to the podium.</p>
+		<p>Bring one player from each family up for the face-off.</p>
 		<button type="button" class="primary" data-action="face-off">Start the face-off</button>
 		${quitButtonHtml()}
 	`);
@@ -237,9 +240,9 @@ function renderRoundIntro(game) {
 
 function renderBuzzIn(game, round, message) {
 	show(`
-		<h2>${escapeHtml(round.board.question.answers.length + " answers on the board. " + round.board.question.question)}</h2>
+		<h2>${escapeHtml(`Top ${round.board.question.answers.length} answers on the board. ${round.board.question.question}`)}</h2>
 		${message ? `<p class="message">${escapeHtml(message)}</p>` : ""}
-		<p>Read the question. Who buzzed in first?</p>
+		<p>Read the question out loud. Which family buzzed in first?</p>
 		${game.teams.map((team, i) => `<button type="button" class="primary" data-team="${i}">${escapeHtml(team.name)}</button>`).join("")}
 		${scoresHtml(game)}
 		${boardHtml(round.board, "locked")}
@@ -249,7 +252,7 @@ function renderBuzzIn(game, round, message) {
 		button.addEventListener("click", () => {
 			audio.buzzIn();
 			const first = Number(button.dataset.team);
-			renderFaceOffAnswer(game, round, { first, firstRank: undefined }, `${game.teams[first].name} buzzed in first.`);
+			renderFaceOffAnswer(game, round, { first, firstRank: undefined }, `${game.teams[first].name} buzzed in first!`);
 		});
 	});
 }
@@ -259,7 +262,7 @@ function renderFaceOffAnswer(game, round, faceOff, message) {
 	show(`
 		<h2>Face-off</h2>
 		<p class="message">${escapeHtml(message)}</p>
-		<p><strong>${escapeHtml(game.teams[answering].name)}</strong> answers. Tap their answer if it is on the board.</p>
+		<p>Ask <strong>${escapeHtml(game.teams[answering].name)}</strong> for their answer. If it's on the board, tap it.</p>
 		<p class="question">${escapeHtml(round.board.question.question)}</p>
 		${scoresHtml(game, answering)}
 		${boardHtml(round.board, "tap")}
@@ -271,17 +274,20 @@ function renderFaceOffAnswer(game, round, faceOff, message) {
 		if (faceOff.firstRank === undefined) {
 			faceOff.firstRank = rank;
 			if (rank === 0) {
-				renderPlayOrPass(game, round, faceOff.first, `${revealMessage(round.board, 0)} That is the top answer.`);
+				renderPlayOrPass(game, round, faceOff.first, `${revealMessage(round.board, 0)} That's the top answer!`);
 				return;
 			}
-			const lead = rank === null ? "Not on the board." : revealMessage(round.board, rank);
-			renderFaceOffAnswer(game, round, faceOff, `${lead} ${game.teams[1 - faceOff.first].name} can beat it.`);
+			const other = game.teams[1 - faceOff.first].name;
+			const next = rank === null
+				? `That's not on the board. Now ${other} gets a turn, and any answer on the board wins it.`
+				: `${revealMessage(round.board, rank)} Now ${other} gets a turn. They need a higher answer to win the face-off.`;
+			renderFaceOffAnswer(game, round, faceOff, next);
 			return;
 		}
 		const winner = faceOffWinner(faceOff.firstRank, rank);
-		const lead = rank === null ? "Not on the board." : revealMessage(round.board, rank);
+		const lead = rank === null ? "That's not on the board either." : revealMessage(round.board, rank);
 		if (winner === null) {
-			renderBuzzIn(game, round, `${lead} Neither answer is on the board. Call up the next two players.`);
+			renderBuzzIn(game, round, `${lead} Bring up the next two players and try again.`);
 			return;
 		}
 		const winnerIndex = winner === "first" ? faceOff.first : 1 - faceOff.first;
@@ -303,9 +309,9 @@ function renderFaceOffAnswer(game, round, faceOff, message) {
 function renderPlayOrPass(game, round, winnerIndex, message) {
 	const other = 1 - winnerIndex;
 	show(`
-		<h2>${escapeHtml(game.teams[winnerIndex].name)} wins the face-off</h2>
+		<h2>${escapeHtml(game.teams[winnerIndex].name)} wins the face-off!</h2>
 		<p class="message">${escapeHtml(message)}</p>
-		<p>Play or pass?</p>
+		<p>Do they want to play this round, or pass it to the other family?</p>
 		<button type="button" class="primary" data-action="play">${escapeHtml(game.teams[winnerIndex].name)} plays</button>
 		<button type="button" data-action="pass">Pass to ${escapeHtml(game.teams[other].name)}</button>
 		${scoresHtml(game, winnerIndex)}
@@ -321,23 +327,23 @@ function startMainPlay(game, round, controlIndex) {
 	round.control = controlIndex;
 	round.strikes = 0;
 	if (round.board.isCleared()) {
-		awardRound(game, round, controlIndex, "The board is clear.");
+		awardRound(game, round, controlIndex, "That clears the board!");
 		return;
 	}
-	renderMainPlay(game, round, `${game.teams[controlIndex].name} has control. Ask each player in turn.`, "h2");
+	renderMainPlay(game, round, `${game.teams[controlIndex].name} is playing. Go down the line and ask each player for an answer.`, "h2");
 }
 
 function bankHtml(round) {
 	const bank = round.board.bank();
-	const multiplied = round.multiplier > 1 ? `, times ${round.multiplier} is ${bank * round.multiplier}` : "";
-	return `<p class="bank">Bank: ${bank}${multiplied}</p>`;
+	const multiplied = round.multiplier > 1 ? ` (that's ${bank * round.multiplier} with ${MULTIPLIER_WORDS[round.multiplier]} points)` : "";
+	return `<p class="bank">Points on the board: ${bank}${multiplied}</p>`;
 }
 
 function renderMainPlay(game, round, message, focusSelector = ".message") {
 	show(`
 		<h2>${escapeHtml(round.board.question.question)}</h2>
 		<p class="message">${escapeHtml(message)}</p>
-		<p>${escapeHtml(game.teams[round.control].name)} has control. Strikes: ${round.strikes} of ${MAX_STRIKES}.</p>
+		<p>${escapeHtml(game.teams[round.control].name)} is in control. ${STRIKE_STATUS[round.strikes]}</p>
 		${bankHtml(round)}
 		${strikesHtml(round.strikes)}
 		${boardHtml(round.board, "tap")}
@@ -349,7 +355,7 @@ function renderMainPlay(game, round, message, focusSelector = ".message") {
 		round.board.reveal(index);
 		audio.reveal();
 		if (round.board.isCleared()) {
-			awardRound(game, round, round.control, `${revealMessage(round.board, index)} The board is clear.`);
+			awardRound(game, round, round.control, `${revealMessage(round.board, index)} That clears the board!`);
 			return;
 		}
 		renderMainPlay(game, round, revealMessage(round.board, index));
@@ -362,15 +368,15 @@ function renderMainPlay(game, round, message, focusSelector = ".message") {
 			renderSteal(game, round);
 			return;
 		}
-		renderMainPlay(game, round, `Strike ${round.strikes}.`);
+		renderMainPlay(game, round, STRIKE_CALLS[round.strikes]);
 	});
 }
 
 function renderSteal(game, round) {
 	const stealer = 1 - round.control;
 	show(`
-		<h2>${escapeHtml(game.teams[stealer].name)} can steal</h2>
-		<p class="message">Three strikes. ${escapeHtml(game.teams[stealer].name)} can confer and give one answer to steal the bank.</p>
+		<h2>${escapeHtml(game.teams[stealer].name)} can steal!</h2>
+		<p class="message">That's three strikes. ${escapeHtml(game.teams[stealer].name)} can talk it over, then give one answer. If it's on the board, they take all the points.</p>
 		<p class="question">${escapeHtml(round.board.question.question)}</p>
 		${bankHtml(round)}
 		${strikesHtml(MAX_STRIKES)}
@@ -382,12 +388,12 @@ function renderSteal(game, round) {
 	onAnswerTap(index => {
 		round.board.reveal(index);
 		audio.reveal();
-		awardRound(game, round, stealer, `${revealMessage(round.board, index)} Steal!`);
+		awardRound(game, round, stealer, `${revealMessage(round.board, index)} They stole it!`);
 	});
 	on("wrong", () => {
 		audio.strike();
 		flashStrike(1);
-		awardRound(game, round, round.control, `Not on the board. ${game.teams[round.control].name} keeps the bank.`);
+		awardRound(game, round, round.control, `That's not on the board, so ${game.teams[round.control].name} keeps the points.`);
 	});
 }
 
@@ -397,14 +403,14 @@ function awardRound(game, round, teamIndex, summary) {
 	team.score += won;
 	const reachedTarget = team.score >= game.target;
 	show(`
-		<h2>${escapeHtml(team.name)} wins ${points(won)}</h2>
+		<h2>${escapeHtml(team.name)} wins ${points(won)}!</h2>
 		<p class="message">${escapeHtml(summary)}</p>
 		${scoresHtml(game, teamIndex)}
 		${reachedTarget
-			? `<p>${escapeHtml(team.name)} reached ${game.target} and plays Fast Money!</p>
+			? `<p>${escapeHtml(team.name)} has ${team.score} points, so they're going to Fast Money!</p>
 				<button type="button" class="primary" data-action="fast-money">Play Fast Money</button>`
 			: `<button type="button" class="primary" data-action="next">Next round</button>`}
-		<h3>The full board</h3>
+		<h3>Here's the full board</h3>
 		<p class="question">${escapeHtml(round.board.question.question)}</p>
 		${boardHtml(round.board, "final")}
 		${quitButtonHtml()}
@@ -431,13 +437,13 @@ function fastMoneyTotal(fm, revealedCounts = [FAST_MONEY_QUESTIONS, FAST_MONEY_Q
 function renderFastMoneyIntro(game, fm, player) {
 	const team = game.teams[fm.teamIndex].name;
 	const instructions = player === 0
-		? `Pick two players from ${team}. Send player 2 out of the room so they cannot hear. Player 1 has ${FAST_MONEY_SECONDS[0]} seconds to answer ${FAST_MONEY_QUESTIONS} questions.`
-		: `Bring player 2 back. They have ${FAST_MONEY_SECONDS[1]} seconds. If they repeat an answer from player 1, tap Duplicate and ask again.`;
+		? `${team}, pick two players for Fast Money. Player 2 has to leave the room so they can't hear anything. Player 1 gets ${FAST_MONEY_SECONDS[0]} seconds to answer ${FAST_MONEY_QUESTIONS} questions.`
+		: `Bring player 2 back in. They get ${FAST_MONEY_SECONDS[1]} seconds. If they give the same answer as player 1, tap Duplicate and ask for another one.`;
 	show(`
 		<h2>Fast Money, player ${player + 1}</h2>
 		<p>${escapeHtml(instructions)}</p>
-		<p>Read each question. Tap the answer that matches, or No match. Points stay hidden until the reveal. Pass skips a question and comes back to it.</p>
-		<p>${escapeHtml(team)} needs ${FAST_MONEY_GOAL} points together to win.</p>
+		<p>Read each question out loud and tap the answer that matches what they say. If nothing matches, tap No match. If they want to skip one, tap Pass and it comes back at the end. The points stay hidden until the reveal.</p>
+		<p>${escapeHtml(team)} needs ${FAST_MONEY_GOAL} points between both players to win.</p>
 		<button type="button" class="primary" data-action="go">Start the clock</button>
 		${quitButtonHtml()}
 	`);
@@ -455,7 +461,7 @@ function renderFastMoneyIntro(game, fm, player) {
 			if (timerEl) timerEl.textContent = secondsLeft;
 			if (secondsLeft <= 0) {
 				audio.strike();
-				announce(statusEl, "Time is up.");
+				announce(statusEl, "Time's up!");
 				finish();
 			} else if (secondsLeft <= TICK_SECONDS) {
 				audio.tick();
@@ -470,12 +476,12 @@ function renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish
 	const question = fm.questions[questionIndex];
 	const partnerPick = player === 1 ? fm.picks[0][questionIndex] : undefined;
 	show(`
-		<p class="timer-box">Time left: <span class="timer">${getSecondsLeft()}</span></p>
+		<p class="timer-box">Seconds left: <span class="timer">${getSecondsLeft()}</span></p>
 		<h2>${escapeHtml(`Question ${questionIndex + 1}. ${question.question}`)}</h2>
 		${message ? `<p class="message">${escapeHtml(message)}</p>` : ""}
 		<div class="fm-answers">
 			${question.answers.map((answer, i) => i === partnerPick
-				? `<button type="button" disabled>${escapeHtml(answer.text)} (player 1 said this)</button>`
+				? `<button type="button" disabled>${escapeHtml(answer.text)} (player 1's answer)</button>`
 				: `<button type="button" data-answer="${i}">${escapeHtml(answer.text)}</button>`).join("")}
 		</div>
 		<button type="button" class="strike-button" data-action="no-match">No match</button>
@@ -499,7 +505,7 @@ function renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish
 	on("no-match", () => record(null));
 	on("duplicate", () => {
 		audio.miss();
-		renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish, "Duplicate. Try again.");
+		renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish, "Player 1 already said that. Ask for a different answer.");
 	});
 	on("pass", () => {
 		queue.push(queue.shift());
@@ -511,8 +517,10 @@ function fastMoneyLineText(fm, player, q) {
 	const question = fm.questions[q];
 	const pick = fm.picks[player][q];
 	const top = question.answers[0];
-	const said = pick === undefined ? "No answer, 0 points" : pick === null ? "No match, 0 points" : `${question.answers[pick].text}, ${points(question.answers[pick].points)}`;
-	return `${q + 1}. ${question.question} ${said}. Top answer: ${top.text}, ${top.points}.`;
+	let said = `They said ${question.answers[pick]?.text}, worth ${points(question.answers[pick]?.points)}.`;
+	if (pick === undefined) said = "They ran out of time before this one.";
+	if (pick === null) said = "Their answer wasn't on the survey, so no points.";
+	return `${q + 1}. ${question.question} ${said} The top answer was ${top.text}, with ${top.points}.`;
 }
 
 function renderFastMoneyReveal(game, fm, player, revealedCount) {
@@ -526,11 +534,11 @@ function renderFastMoneyReveal(game, fm, player, revealedCount) {
 	const lines = Array.from({ length: revealedCount }, (_, q) => `<li>${escapeHtml(fastMoneyLineText(fm, player, q))}</li>`);
 	const lastLine = revealedCount > 0 ? fastMoneyLineText(fm, player, revealedCount - 1) : "";
 	let nextButton = `<button type="button" class="primary" data-action="reveal">Survey says</button>`;
-	if (done && player === 0) nextButton = `<button type="button" class="primary" data-action="player-two">Bring out player 2</button>`;
-	if (done && player === 1) nextButton = `<button type="button" class="primary" data-action="finish">See the result</button>`;
+	if (done && player === 0) nextButton = `<button type="button" class="primary" data-action="player-two">Bring player 2 back in</button>`;
+	if (done && player === 1) nextButton = `<button type="button" class="primary" data-action="finish">See how they did</button>`;
 	show(`
-		<h2>Player ${player + 1} reveal</h2>
-		${lastLine ? `<p class="message">${escapeHtml(lastLine)} Total: ${total}.</p>` : `<p class="message">Let's see what the survey said.</p>`}
+		<h2>Let's see how player ${player + 1} did</h2>
+		${lastLine ? `<p class="message">${escapeHtml(lastLine)} That's ${total} so far.</p>` : `<p class="message">Tap Survey says to reveal each answer.</p>`}
 		<p class="fm-total" aria-hidden="true">${total}</p>
 		<ol class="fm-lines">${lines.join("")}</ol>
 		${nextButton}
@@ -553,14 +561,14 @@ function renderFastMoneyEnd(game, fm, total) {
 	const team = game.teams[fm.teamIndex].name;
 	const won = total >= FAST_MONEY_GOAL;
 	show(`
-		<h2>${won ? `${escapeHtml(team)} wins Fast Money!` : `${escapeHtml(team)} falls short`}</h2>
+		<h2>${won ? `${escapeHtml(team)} wins Fast Money!` : "So close!"}</h2>
 		<p class="message">${won
-			? `They scored ${total} points. That is ${FAST_MONEY_GOAL} or more!`
-			: `They scored ${total} points. They needed ${FAST_MONEY_GOAL}.`}</p>
+			? `They scored ${total} points. That's enough to win!`
+			: `${escapeHtml(team)} scored ${total} points, but they needed ${FAST_MONEY_GOAL}.`}</p>
 		<p class="fm-total" aria-hidden="true">${total}</p>
 		${scoresHtml(game, fm.teamIndex)}
 		<button type="button" class="primary" data-action="again">Play again</button>
-		<button type="button" data-action="menu">Back to menu</button>
+		<button type="button" data-action="menu">Back to the main menu</button>
 	`);
 	if (won) {
 		audio.win();
