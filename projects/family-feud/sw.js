@@ -30,7 +30,6 @@ const ASSETS = [
 	'sounds/FEUDCLP4.wav',
 	'sounds/FEUDCLP5.wav',
 	'sounds/FONEBUZZ.MAC%20%5B1%5D.wav',
-	'sounds/Key.wav',
 	'sounds/LO_BUZZ.MAC%20%5B1%5D.wav',
 	'sounds/SELECT.SND%20%5B1%5D.wav',
 	'sounds/WIN_RIFF.SND.wav',

@@ -353,17 +353,6 @@ body[data-team="1"] {
 	gap: 0.5rem;
 }
 
-.timer-box {
-	font-size: 1.25rem;
-	font-weight: bold;
-}
-
-.timer {
-	color: var(--gold);
-	font-size: 2rem;
-	font-variant-numeric: tabular-nums;
-}
-
 .fm-answers button {
 	display: block;
 	width: 100%;
@@ -466,11 +455,8 @@ body.spectator .tile.just-revealed {
 	animation: flip 0.4s ease-out;
 }
 
-.fm-question, .timer-box {
-	text-align: center;
-}
-
 .fm-question {
+	text-align: center;
 	font-size: 1.8rem;
 	font-weight: bold;
 }

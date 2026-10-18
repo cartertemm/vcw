@@ -47,7 +47,7 @@ function viewHtml(view, previous) {
 				${scoresHtml(view.teams, view.team)}
 				<h1>Fast Money</h1>
 				<p class="message">${escapeHtml(view.caption)}</p>
-				${view.question ? `<p class="timer-box">Seconds left: <span class="timer">${view.seconds}</span></p><p class="fm-question">${escapeHtml(view.question)}</p>` : ""}
+				${view.question ? `<p class="fm-question">${escapeHtml(view.question)}</p>` : ""}
 				<p class="fm-total">${view.total}</p>
 				<div class="fm-columns">
 					${fastMoneyColumnHtml("Player 1", view.rows[0])}

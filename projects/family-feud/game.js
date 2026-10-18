@@ -2,7 +2,6 @@ export const DEFAULT_TARGET = 300;
 export const MAX_STRIKES = 3;
 export const FAST_MONEY_GOAL = 200;
 export const FAST_MONEY_QUESTIONS = 5;
-export const FAST_MONEY_SECONDS = [20, 25];
 
 const ROUND_MULTIPLIERS = [1, 1, 2, 3];
 

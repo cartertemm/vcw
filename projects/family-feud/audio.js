@@ -4,7 +4,6 @@ const SOUND_FILES = {
 	strike: "BUZZER.MAC [1].wav",
 	miss: "LO_BUZZ.MAC [1].wav",
 	buzzIn: "FONEBUZZ.MAC [1].wav",
-	tick: "Key.wav",
 	intro: "DIDILIDI.MAC [1].wav",
 	select: "SELECT.SND [1].wav",
 	applauseStart: "CLAPS1.SND [1].wav",

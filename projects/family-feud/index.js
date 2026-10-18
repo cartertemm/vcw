@@ -11,7 +11,6 @@ import {
 	MAX_STRIKES,
 	FAST_MONEY_GOAL,
 	FAST_MONEY_QUESTIONS,
-	FAST_MONEY_SECONDS,
 	multiplierForRound,
 	faceOffWinner,
 	createBoard,
@@ -22,8 +21,6 @@ const MULTIPLIER_NAMES = { 1: "Regular points this round.", 2: "Double points th
 const MULTIPLIER_WORDS = { 2: "double", 3: "triple" };
 const STRIKE_STATUS = ["No strikes yet.", "They have 1 strike.", "They have 2 strikes. One more and the other family can steal."];
 const STRIKE_CALLS = [null, "That's a strike.", "That's strike two."];
-const TICK_SECONDS = 5;
-const ONE_SECOND_MS = 1000;
 
 const app = document.getElementById("app");
 const statusEl = document.getElementById("status");
@@ -38,7 +35,6 @@ audio.unlock = localAudio.unlock;
 
 let pools = null;
 let showHiddenAnswers = false;
-let timerId = null;
 let lastFastMoneyView = null;
 
 function setupGate() {
@@ -60,11 +56,6 @@ function confirmQuit() {
 	return window.confirm(
 		"Are you sure you would like to quit the current game and go back to the main menu? All progress will be lost"
 	);
-}
-
-function stopTimer() {
-	clearInterval(timerId);
-	timerId = null;
 }
 
 function isPlural(name) {
@@ -91,10 +82,7 @@ function show(html, focusSelector = "h1, h2", activeTeam = null) {
 	const quitButton = app.querySelector('[data-action="quit"]');
 	if (quitButton) {
 		quitButton.addEventListener("click", () => {
-			if (confirmQuit()) {
-				stopTimer();
-				renderMenu();
-			}
+			if (confirmQuit()) renderMenu();
 		});
 	}
 	const hostToggle = app.querySelector("#show-hidden");
@@ -170,7 +158,7 @@ function sendBoard(game, round, caption, { control = null, strikes = 0, showAll 
 	});
 }
 
-function sendFastMoney(game, fm, player, caption, question = null, seconds = null) {
+function sendFastMoney(game, fm, player, caption, question = null) {
 	const playerOneHidden = question !== null && player === 1;
 	lastFastMoneyView = {
 		screen: "fast-money",
@@ -179,7 +167,6 @@ function sendFastMoney(game, fm, player, caption, question = null, seconds = nul
 		activeTeam: fm.teamIndex,
 		caption,
 		question,
-		seconds,
 		total: fastMoneyTotal(fm, fm.revealed),
 		rows: [
 			playerOneHidden ? fm.questions.map(() => null) : fastMoneyRows(fm, 0, fm.revealed[0]),
@@ -269,7 +256,7 @@ function renderInstructions() {
 			<p>Only the family that wins the round gets its points. Some rounds are worth double or triple points, and the screen will say when that happens. The first family to reach the chosen winning score moves on to Fast Money.</p>
 
 			<h3>Fast Money</h3>
-			<p>The winning family chooses two players. Player 2 leaves the room and must not listen. Player 1 gets 20 seconds to answer five questions. Player 2 then gets 25 seconds to answer the same questions. If Player 2 repeats an answer, they must give a different one. The two players need 200 points together to win.</p>
+			<p>The winning family chooses two players. Player 2 leaves the room and must not listen. Player 1 answers five questions. Player 2 then answers the same questions. If Player 2 repeats an answer, they must give a different one. The two players need 200 points together to win.</p>
 
 			<h3>Keep it fair</h3>
 			<p>Do not use phones, the internet, or other hints. Do not call out an answer when it is not your turn. Families may talk together only when they get a chance to steal. An answer that is already showing cannot be used again. The host decides whether an answer is close enough to one on the board. Please accept the host's decision and keep playing.</p>
@@ -544,14 +531,14 @@ function fastMoneyTotal(fm, revealedCounts = [FAST_MONEY_QUESTIONS, FAST_MONEY_Q
 function renderFastMoneyIntro(game, fm, player) {
 	const team = game.teams[fm.teamIndex].name;
 	const instructions = player === 0
-		? `${team}, pick two players for Fast Money. Player 2 has to leave the room so they can't hear anything. Player 1 gets ${FAST_MONEY_SECONDS[0]} seconds to answer ${FAST_MONEY_QUESTIONS} questions.`
-		: `Bring player 2 back in. They get ${FAST_MONEY_SECONDS[1]} seconds. If they give the same answer as player 1, tap Duplicate and ask for another one.`;
+		? `${team}, pick two players for Fast Money. Player 2 has to leave the room so they can't hear anything. Player 1 answers ${FAST_MONEY_QUESTIONS} questions.`
+		: `Bring player 2 back in. If they give the same answer as player 1, tap Duplicate and ask for another one.`;
 	show(`
 		<h2>Fast Money, player ${player + 1}</h2>
 		<p>${escapeHtml(instructions)}</p>
 		<p>Read each question and tap the answer that matches what they say, or No match if it's not on the list. Pass saves a question for the end.</p>
 		<p>${escapeHtml(teamDoes(team, "needs", "need"))} ${FAST_MONEY_GOAL} points between both players to win.</p>
-		<button type="button" class="primary" data-action="go">Start the clock</button>
+		<button type="button" class="primary" data-action="go">Start</button>
 		${quitButtonHtml()}
 	`, "h1, h2", fm.teamIndex);
 	sendFastMoney(game, fm, player, player === 0
@@ -560,34 +547,16 @@ function renderFastMoneyIntro(game, fm, player) {
 	on("go", () => {
 		audio.select();
 		const queue = fm.questions.map((_, i) => i);
-		let secondsLeft = FAST_MONEY_SECONDS[player];
-		const finish = () => {
-			stopTimer();
-			renderFastMoneyReveal(game, fm, player, 0);
-		};
-		timerId = setInterval(() => {
-			secondsLeft--;
-			const timerEl = app.querySelector(".timer");
-			if (timerEl) timerEl.textContent = secondsLeft;
-			live.setView({ ...lastFastMoneyView, seconds: secondsLeft });
-			if (secondsLeft <= 0) {
-				audio.strike();
-				announce(statusEl, "Time's up!");
-				finish();
-			} else if (secondsLeft <= TICK_SECONDS) {
-				audio.tick();
-			}
-		}, ONE_SECOND_MS);
-		renderFastMoneyQuestion(game, fm, player, queue, () => secondsLeft, finish);
+		const finish = () => renderFastMoneyReveal(game, fm, player, 0);
+		renderFastMoneyQuestion(game, fm, player, queue, finish);
 	});
 }
 
-function renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish, message = "") {
+function renderFastMoneyQuestion(game, fm, player, queue, finish, message = "") {
 	const questionIndex = queue[0];
 	const question = fm.questions[questionIndex];
 	const partnerPick = player === 1 ? fm.picks[0][questionIndex] : undefined;
 	show(`
-		<p class="timer-box">Seconds left: <span class="timer">${getSecondsLeft()}</span></p>
 		<h2>${escapeHtml(`Question ${questionIndex + 1}. ${question.question}`)}</h2>
 		${message ? `<p class="message">${escapeHtml(message)}</p>` : ""}
 		<div class="fm-answers">
@@ -600,7 +569,7 @@ function renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish
 		${queue.length > 1 ? `<button type="button" data-action="pass">Pass</button>` : ""}
 		${quitButtonHtml()}
 	`, message ? ".message" : "h2", fm.teamIndex);
-	sendFastMoney(game, fm, player, `Player ${player + 1} is answering.`, question.question, getSecondsLeft());
+	sendFastMoney(game, fm, player, `Player ${player + 1} is answering.`, question.question);
 
 	function record(pick) {
 		audio.select();
@@ -610,18 +579,18 @@ function renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish
 			finish();
 			return;
 		}
-		renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish);
+		renderFastMoneyQuestion(game, fm, player, queue, finish);
 	}
 
 	onAnswerTap(record);
 	on("no-match", () => record(null));
 	on("duplicate", () => {
 		audio.miss();
-		renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish, "Player 1 already said that. Ask for a different answer.");
+		renderFastMoneyQuestion(game, fm, player, queue, finish, "Player 1 already said that. Ask for a different answer.");
 	});
 	on("pass", () => {
 		queue.push(queue.shift());
-		renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish);
+		renderFastMoneyQuestion(game, fm, player, queue, finish);
 	});
 }
 
@@ -630,7 +599,6 @@ function fastMoneyLineText(fm, player, q) {
 	const pick = fm.picks[player][q];
 	const top = question.answers[0];
 	let said = `They said ${question.answers[pick]?.text}, worth ${points(question.answers[pick]?.points)}.`;
-	if (pick === undefined) said = "They ran out of time before this one.";
 	if (pick === null) said = "Their answer wasn't on the survey, so no points.";
 	return `${q + 1}. ${question.question} ${said} The top answer was ${top.text}, with ${top.points}.`;
 }
