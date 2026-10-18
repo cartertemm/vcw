@@ -73,7 +73,8 @@ function points(n) {
 	return `${n} point${n === 1 ? "" : "s"}`;
 }
 
-function show(html, focusSelector = "h1, h2") {
+function show(html, focusSelector = "h1, h2", activeTeam = null) {
+	document.body.dataset.team = activeTeam ?? "";
 	app.innerHTML = html;
 	focusElement(app.querySelector(focusSelector));
 	const quitButton = app.querySelector('[data-action="quit"]');
@@ -116,7 +117,7 @@ function scoresHtml(game, controlIndex = null) {
 	return `
 		<section class="scores" aria-label="Scores">
 			${game.teams.map((team, i) => `
-				<div class="team${i === controlIndex ? " in-control" : ""}">
+				<div class="team team-${i}${i === controlIndex ? " in-control" : ""}">
 					<span class="team-name">${escapeHtml(team.name)}</span>
 					<span class="team-score">${team.score}</span>
 				</div>
@@ -233,9 +234,9 @@ function renderInstructions() {
 function renderSetup(previous = { one: "", two: "", target: String(DEFAULT_TARGET) }, errorMessage = "") {
 	show(`
 		<h2>Who's playing?</h2>
-		<label for="team-one">First family's name</label>
+		<label for="team-one">First family's name (orange)</label>
 		<input type="text" id="team-one" autocomplete="off">
-		<label for="team-two">Second family's name</label>
+		<label for="team-two">Second family's name (green)</label>
 		<input type="text" id="team-two" autocomplete="off">
 		<label for="target">Points needed to win (the winners play Fast Money)</label>
 		<input type="number" id="target" min="1" inputmode="numeric">
@@ -291,7 +292,7 @@ function renderBuzzIn(game, round, message) {
 		<h2>${escapeHtml(`Top ${round.board.question.answers.length} answers on the board. ${round.board.question.question}`)}</h2>
 		${message ? `<p class="message">${escapeHtml(message)}</p>` : ""}
 		<p>Read the question out loud. Which family buzzed in first?</p>
-		${game.teams.map((team, i) => `<button type="button" class="primary" data-team="${i}">${escapeHtml(team.name)}</button>`).join("")}
+		${game.teams.map((team, i) => `<button type="button" class="team-button team-${i}" data-team="${i}">${escapeHtml(team.name)}</button>`).join("")}
 		${scoresHtml(game)}
 		${boardHtml(round.board, "locked")}
 		${hostControlsHtml()}
@@ -316,7 +317,7 @@ function renderFaceOffAnswer(game, round, faceOff, message) {
 		${boardHtml(round.board, "tap")}
 		<button type="button" class="strike-button" data-action="miss">Not on the board</button>
 		${hostControlsHtml()}
-	`, ".message");
+	`, ".message", answering);
 
 	function record(rank) {
 		if (faceOff.firstRank === undefined) {
@@ -360,12 +361,12 @@ function renderPlayOrPass(game, round, winnerIndex, message) {
 		<h2>${escapeHtml(teamDoes(game.teams[winnerIndex].name, "wins", "win"))} the face-off!</h2>
 		<p class="message">${escapeHtml(message)}</p>
 		<p>Do they want to play this round, or pass it to the other family?</p>
-		<button type="button" class="primary" data-action="play">${escapeHtml(teamDoes(game.teams[winnerIndex].name, "plays", "play"))}</button>
-		<button type="button" data-action="pass">Pass to ${escapeHtml(teamName(game.teams[other].name))}</button>
+		<button type="button" class="team-button team-${winnerIndex}" data-action="play">${escapeHtml(teamDoes(game.teams[winnerIndex].name, "plays", "play"))}</button>
+		<button type="button" class="team-button team-${other}" data-action="pass">Pass to ${escapeHtml(teamName(game.teams[other].name))}</button>
 		${scoresHtml(game, winnerIndex)}
 		${boardHtml(round.board, "locked")}
 		${hostControlsHtml()}
-	`);
+	`, "h1, h2", winnerIndex);
 	on("play", () => startMainPlay(game, round, winnerIndex));
 	on("pass", () => startMainPlay(game, round, other));
 }
@@ -398,7 +399,7 @@ function renderMainPlay(game, round, message, focusSelector = ".message") {
 		<button type="button" class="strike-button" data-action="strike">Strike</button>
 		${scoresHtml(game, round.control)}
 		${hostControlsHtml()}
-	`, focusSelector);
+	`, focusSelector, round.control);
 	onAnswerTap(index => {
 		round.board.reveal(index);
 		audio.reveal();
@@ -432,7 +433,7 @@ function renderSteal(game, round) {
 		<button type="button" class="strike-button" data-action="wrong">Not on the board</button>
 		${scoresHtml(game, stealer)}
 		${hostControlsHtml()}
-	`, ".message");
+	`, ".message", stealer);
 	onAnswerTap(index => {
 		round.board.reveal(index);
 		audio.reveal();
@@ -462,7 +463,7 @@ function awardRound(game, round, teamIndex, summary) {
 		<p class="question">${escapeHtml(round.board.question.question)}</p>
 		${boardHtml(round.board, "final")}
 		${quitButtonHtml()}
-	`);
+	`, "h1, h2", teamIndex);
 	audio.applause();
 	on("next", () => renderRoundIntro(game));
 	on("fast-money", () => {
@@ -494,7 +495,7 @@ function renderFastMoneyIntro(game, fm, player) {
 		<p>${escapeHtml(teamDoes(team, "needs", "need"))} ${FAST_MONEY_GOAL} points between both players to win.</p>
 		<button type="button" class="primary" data-action="go">Start the clock</button>
 		${quitButtonHtml()}
-	`);
+	`, "h1, h2", fm.teamIndex);
 	on("go", () => {
 		audio.select();
 		const queue = fm.questions.map((_, i) => i);
@@ -536,7 +537,7 @@ function renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish
 		${player === 1 ? `<button type="button" data-action="duplicate">Duplicate</button>` : ""}
 		${queue.length > 1 ? `<button type="button" data-action="pass">Pass</button>` : ""}
 		${quitButtonHtml()}
-	`, message ? ".message" : "h2");
+	`, message ? ".message" : "h2", fm.teamIndex);
 
 	function record(pick) {
 		audio.select();
@@ -591,7 +592,7 @@ function renderFastMoneyReveal(game, fm, player, revealedCount) {
 		<ol class="fm-lines">${lines.join("")}</ol>
 		${nextButton}
 		${quitButtonHtml()}
-	`, revealedCount > 0 ? ".message" : "h2");
+	`, revealedCount > 0 ? ".message" : "h2", fm.teamIndex);
 	on("reveal", () => {
 		const pick = fm.picks[player][revealedCount];
 		if (pick === undefined || pick === null) {
@@ -617,7 +618,7 @@ function renderFastMoneyEnd(game, fm, total) {
 		${scoresHtml(game, fm.teamIndex)}
 		<button type="button" class="primary" data-action="again">Play again</button>
 		<button type="button" data-action="menu">Back to the main menu</button>
-	`);
+	`, "h1, h2", fm.teamIndex);
 	if (won) {
 		audio.win();
 	} else {

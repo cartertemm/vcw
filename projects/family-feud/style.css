@@ -7,6 +7,8 @@
 	--text: #ffffff;
 	--muted: #c9d6f5;
 	--red: #e0281b;
+	--team-0: #ff9a3c;
+	--team-1: #3fdc8f;
 }
 
 html {
@@ -155,13 +157,42 @@ input[type="text"], input[type="number"] {
 	background: rgba(0, 0, 0, 0.3);
 }
 
+.team-0 {
+	--team: var(--team-0);
+}
+
+.team-1 {
+	--team: var(--team-1);
+}
+
+.team {
+	border-color: color-mix(in srgb, var(--team) 45%, transparent);
+}
+
 .team.in-control {
-	border-color: var(--gold);
+	border-color: var(--team);
+	background: color-mix(in srgb, var(--team) 25%, rgba(0, 0, 0, 0.3));
 }
 
 .team-name {
 	font-weight: bold;
 	text-align: center;
+	color: var(--team);
+}
+
+button.team-button {
+	background: var(--team);
+	border-color: var(--team);
+	color: #10131a;
+	font-weight: bold;
+}
+
+body[data-team="0"] {
+	border-top: 0.5rem solid var(--team-0);
+}
+
+body[data-team="1"] {
+	border-top: 0.5rem solid var(--team-1);
 }
 
 .team-score {
