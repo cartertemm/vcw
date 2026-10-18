@@ -107,7 +107,7 @@ function quitButtonHtml() {
 function hostControlsHtml() {
 	return `
 		<div class="host-controls">
-			<label class="inline"><input type="checkbox" id="show-hidden"> Show the hidden answers on screen (for a sighted host)</label>
+			<label class="inline"><input type="checkbox" id="show-hidden"> Show the hidden answers on screen</label>
 			${quitButtonHtml()}
 		</div>
 	`;

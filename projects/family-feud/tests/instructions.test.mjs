@@ -9,8 +9,11 @@ test("main menu offers instructions", () => {
 	assert.match(source, /on\("instructions", renderInstructions\)/);
 });
 
-test("menus and instructions do not mention screen readers", () => {
-	assert.doesNotMatch(source, /screen reader/i);
+test("game text does not separate sighted and blind players", async () => {
+	const page = await readFile(new URL("../index.html", import.meta.url), "utf8");
+	for (const text of [source, page]) {
+		assert.doesNotMatch(text, /screen ?reader|sighted|blind|earbud|voiceover|talkback/i);
+	}
 });
 
 test("instructions explain the full game in plain language", () => {
