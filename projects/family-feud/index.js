@@ -56,6 +56,19 @@ function stopTimer() {
 	timerId = null;
 }
 
+function isPlural(name) {
+	return /s$/i.test(name);
+}
+
+function teamName(name, capitalize = false) {
+	if (!isPlural(name) || /^the\s/i.test(name)) return name;
+	return `${capitalize ? "The" : "the"} ${name}`;
+}
+
+function teamDoes(name, singularVerb, pluralVerb, capitalize = true) {
+	return `${teamName(name, capitalize)} ${isPlural(name) ? pluralVerb : singularVerb}`;
+}
+
 function points(n) {
 	return `${n} point${n === 1 ? "" : "s"}`;
 }
@@ -252,7 +265,7 @@ function renderBuzzIn(game, round, message) {
 		button.addEventListener("click", () => {
 			audio.buzzIn();
 			const first = Number(button.dataset.team);
-			renderFaceOffAnswer(game, round, { first, firstRank: undefined }, `${game.teams[first].name} buzzed in first!`);
+			renderFaceOffAnswer(game, round, { first, firstRank: undefined }, `${teamName(game.teams[first].name, true)} buzzed in first!`);
 		});
 	});
 }
@@ -262,7 +275,7 @@ function renderFaceOffAnswer(game, round, faceOff, message) {
 	show(`
 		<h2>Face-off</h2>
 		<p class="message">${escapeHtml(message)}</p>
-		<p>Ask <strong>${escapeHtml(game.teams[answering].name)}</strong> for their answer. If it's on the board, tap it.</p>
+		<p>Ask <strong>${escapeHtml(teamName(game.teams[answering].name))}</strong> for their answer. If it's on the board, tap it.</p>
 		<p class="question">${escapeHtml(round.board.question.question)}</p>
 		${scoresHtml(game, answering)}
 		${boardHtml(round.board, "tap")}
@@ -279,8 +292,8 @@ function renderFaceOffAnswer(game, round, faceOff, message) {
 			}
 			const other = game.teams[1 - faceOff.first].name;
 			const next = rank === null
-				? `That's not on the board. Now ${other} gets a turn, and any answer on the board wins it.`
-				: `${revealMessage(round.board, rank)} Now ${other} gets a turn. They need a higher answer to win the face-off.`;
+				? `That's not on the board. Now ${teamDoes(other, "gets", "get", false)} a turn, and any answer on the board wins it.`
+				: `${revealMessage(round.board, rank)} Now ${teamDoes(other, "gets", "get", false)} a turn. They need a higher answer to win the face-off.`;
 			renderFaceOffAnswer(game, round, faceOff, next);
 			return;
 		}
@@ -309,11 +322,11 @@ function renderFaceOffAnswer(game, round, faceOff, message) {
 function renderPlayOrPass(game, round, winnerIndex, message) {
 	const other = 1 - winnerIndex;
 	show(`
-		<h2>${escapeHtml(game.teams[winnerIndex].name)} wins the face-off!</h2>
+		<h2>${escapeHtml(teamDoes(game.teams[winnerIndex].name, "wins", "win"))} the face-off!</h2>
 		<p class="message">${escapeHtml(message)}</p>
 		<p>Do they want to play this round, or pass it to the other family?</p>
-		<button type="button" class="primary" data-action="play">${escapeHtml(game.teams[winnerIndex].name)} plays</button>
-		<button type="button" data-action="pass">Pass to ${escapeHtml(game.teams[other].name)}</button>
+		<button type="button" class="primary" data-action="play">${escapeHtml(teamDoes(game.teams[winnerIndex].name, "plays", "play"))}</button>
+		<button type="button" data-action="pass">Pass to ${escapeHtml(teamName(game.teams[other].name))}</button>
 		${scoresHtml(game, winnerIndex)}
 		${boardHtml(round.board, "locked")}
 		${hostControlsHtml()}
@@ -330,7 +343,7 @@ function startMainPlay(game, round, controlIndex) {
 		awardRound(game, round, controlIndex, "That clears the board!");
 		return;
 	}
-	renderMainPlay(game, round, `${game.teams[controlIndex].name} is playing. Go down the line and ask each player for an answer.`, "h2");
+	renderMainPlay(game, round, `${teamDoes(game.teams[controlIndex].name, "is", "are")} playing. Go down the line and ask each player for an answer.`, "h2");
 }
 
 function bankHtml(round) {
@@ -343,7 +356,7 @@ function renderMainPlay(game, round, message, focusSelector = ".message") {
 	show(`
 		<h2>${escapeHtml(round.board.question.question)}</h2>
 		<p class="message">${escapeHtml(message)}</p>
-		<p>${escapeHtml(game.teams[round.control].name)} is in control. ${STRIKE_STATUS[round.strikes]}</p>
+		<p>${escapeHtml(teamDoes(game.teams[round.control].name, "is", "are"))} in control. ${STRIKE_STATUS[round.strikes]}</p>
 		${bankHtml(round)}
 		${strikesHtml(round.strikes)}
 		${boardHtml(round.board, "tap")}
@@ -375,8 +388,8 @@ function renderMainPlay(game, round, message, focusSelector = ".message") {
 function renderSteal(game, round) {
 	const stealer = 1 - round.control;
 	show(`
-		<h2>${escapeHtml(game.teams[stealer].name)} can steal!</h2>
-		<p class="message">That's three strikes. ${escapeHtml(game.teams[stealer].name)} can talk it over, then give one answer. If it's on the board, they take all the points.</p>
+		<h2>${escapeHtml(teamName(game.teams[stealer].name, true))} can steal!</h2>
+		<p class="message">That's three strikes. ${escapeHtml(teamName(game.teams[stealer].name, true))} can talk it over, then give one answer. If it's on the board, they take all the points.</p>
 		<p class="question">${escapeHtml(round.board.question.question)}</p>
 		${bankHtml(round)}
 		${strikesHtml(MAX_STRIKES)}
@@ -393,7 +406,7 @@ function renderSteal(game, round) {
 	on("wrong", () => {
 		audio.strike();
 		flashStrike(1);
-		awardRound(game, round, round.control, `That's not on the board, so ${game.teams[round.control].name} keeps the points.`);
+		awardRound(game, round, round.control, `That's not on the board, so ${teamDoes(game.teams[round.control].name, "keeps", "keep", false)} the points.`);
 	});
 }
 
@@ -403,11 +416,11 @@ function awardRound(game, round, teamIndex, summary) {
 	team.score += won;
 	const reachedTarget = team.score >= game.target;
 	show(`
-		<h2>${escapeHtml(team.name)} wins ${points(won)}!</h2>
+		<h2>${escapeHtml(teamDoes(team.name, "wins", "win"))} ${points(won)}!</h2>
 		<p class="message">${escapeHtml(summary)}</p>
 		${scoresHtml(game, teamIndex)}
 		${reachedTarget
-			? `<p>${escapeHtml(team.name)} has ${team.score} points, so they're going to Fast Money!</p>
+			? `<p>${escapeHtml(teamDoes(team.name, "has", "have"))} ${team.score} points, so they're going to Fast Money!</p>
 				<button type="button" class="primary" data-action="fast-money">Play Fast Money</button>`
 			: `<button type="button" class="primary" data-action="next">Next round</button>`}
 		<h3>Here's the full board</h3>
@@ -443,7 +456,7 @@ function renderFastMoneyIntro(game, fm, player) {
 		<h2>Fast Money, player ${player + 1}</h2>
 		<p>${escapeHtml(instructions)}</p>
 		<p>Read each question out loud and tap the answer that matches what they say. If nothing matches, tap No match. If they want to skip one, tap Pass and it comes back at the end. The points stay hidden until the reveal.</p>
-		<p>${escapeHtml(team)} needs ${FAST_MONEY_GOAL} points between both players to win.</p>
+		<p>${escapeHtml(teamDoes(team, "needs", "need"))} ${FAST_MONEY_GOAL} points between both players to win.</p>
 		<button type="button" class="primary" data-action="go">Start the clock</button>
 		${quitButtonHtml()}
 	`);
@@ -561,10 +574,10 @@ function renderFastMoneyEnd(game, fm, total) {
 	const team = game.teams[fm.teamIndex].name;
 	const won = total >= FAST_MONEY_GOAL;
 	show(`
-		<h2>${won ? `${escapeHtml(team)} wins Fast Money!` : "So close!"}</h2>
+		<h2>${won ? `${escapeHtml(teamDoes(team, "wins", "win"))} Fast Money!` : "So close!"}</h2>
 		<p class="message">${won
 			? `They scored ${total} points. That's enough to win!`
-			: `${escapeHtml(team)} scored ${total} points, but they needed ${FAST_MONEY_GOAL}.`}</p>
+			: `${escapeHtml(teamName(team, true))} scored ${total} points, but they needed ${FAST_MONEY_GOAL}.`}</p>
 		<p class="fm-total" aria-hidden="true">${total}</p>
 		${scoresHtml(game, fm.teamIndex)}
 		<button type="button" class="primary" data-action="again">Play again</button>
