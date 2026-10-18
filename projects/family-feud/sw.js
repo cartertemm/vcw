@@ -1,4 +1,4 @@
-const CACHE_NAME = 'family-feud-v1';
+const CACHE_NAME = 'family-feud-v2';
 const ASSETS = [
 	'.',
 	'index.html',
@@ -8,6 +8,10 @@ const ASSETS = [
 	'data.js',
 	'game.js',
 	'audio.js',
+	'live.js',
+	'spectator-view.js',
+	'ui.js',
+	'spectator.js',
 	'index.js',
 	'data/questions.json',
 	'data/fast-money.json',
@@ -45,6 +49,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+	if (event.request.method !== 'GET' || new URL(event.request.url).pathname.includes('/room/')) return;
 	event.respondWith(
 		fetch(event.request)
 			.then((response) => {

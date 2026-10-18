@@ -2,6 +2,7 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { createRelay } from './relay.mjs';
 
 const PORT = 8124;
 const TYPES = {
@@ -13,8 +14,10 @@ const TYPES = {
 	'.wav': 'audio/wav',
 };
 const root = process.cwd();
+const relay = createRelay();
 
 http.createServer(async (req, res) => {
+	if (relay(req, res)) return;
 	const requestedPath = req.url.split('?')[0];
 	const path = requestedPath === '/' ? '/index.html' : requestedPath;
 	try {

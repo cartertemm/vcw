@@ -2,6 +2,10 @@ import { escapeHtml, focusElement, announce } from "./dom-utils.js";
 import { isIOS, isIOSStandalone } from "./platform.js";
 import { createPool, loadQuestions } from "./data.js";
 import { createAudio } from "./audio.js";
+import { createLiveLink } from "./live.js";
+import { boardView, teamsView, fastMoneyRows } from "./spectator-view.js";
+import { scoresHtml, strikesHtml, flashStrike } from "./ui.js";
+import { startSpectator } from "./spectator.js";
 import {
 	DEFAULT_TARGET,
 	MAX_STRIKES,
@@ -20,15 +24,22 @@ const STRIKE_STATUS = ["No strikes yet.", "They have 1 strike.", "They have 2 st
 const STRIKE_CALLS = [null, "That's a strike.", "That's strike two."];
 const TICK_SECONDS = 5;
 const ONE_SECOND_MS = 1000;
-const STRIKE_FLASH_MS = 900;
 
 const app = document.getElementById("app");
 const statusEl = document.getElementById("status");
-const audio = createAudio();
+const localAudio = createAudio();
+const live = createLiveLink();
+// Once a spectator screen is watching, sounds play there instead of here.
+const audio = Object.fromEntries(Object.keys(localAudio).map(name => [
+	name,
+	() => (live.hasSpectators ? live.playSound(name) : localAudio[name]()),
+]));
+audio.unlock = localAudio.unlock;
 
 let pools = null;
 let showHiddenAnswers = false;
 let timerId = null;
+let lastFastMoneyView = null;
 
 function setupGate() {
 	const gate = document.getElementById("install-gate");
@@ -108,21 +119,9 @@ function hostControlsHtml() {
 	return `
 		<div class="host-controls">
 			<label class="inline"><input type="checkbox" id="show-hidden"> Show the hidden answers on screen</label>
+			${live.available ? `<p class="watch-code">TV code: <strong>${live.code}</strong></p>` : ""}
 			${quitButtonHtml()}
 		</div>
-	`;
-}
-
-function scoresHtml(game, controlIndex = null) {
-	return `
-		<section class="scores" aria-label="Scores">
-			${game.teams.map((team, i) => `
-				<div class="team team-${i}${i === controlIndex ? " in-control" : ""}">
-					<span class="team-name">${escapeHtml(team.name)}</span>
-					<span class="team-score">${team.score}</span>
-				</div>
-			`).join("")}
-		</section>
 	`;
 }
 
@@ -150,24 +149,44 @@ function boardHtml(board, mode) {
 	return `<ol class="board${hostClass}" aria-label="Survey board">${tiles.join("")}</ol>`;
 }
 
-function strikesHtml(count) {
-	return `<div class="strikes" aria-hidden="true">${"<span>X</span>".repeat(count)}</div>`;
-}
-
-function flashStrike(count) {
-	document.querySelector(".strike-flash")?.remove();
-	const overlay = document.createElement("div");
-	overlay.className = "strike-flash";
-	overlay.setAttribute("aria-hidden", "true");
-	overlay.innerHTML = "<span>X</span>".repeat(count);
-	document.body.appendChild(overlay);
-	setTimeout(() => overlay.remove(), STRIKE_FLASH_MS);
-}
-
 function onAnswerTap(handler) {
 	app.querySelectorAll("[data-answer]").forEach(button => {
 		button.addEventListener("click", () => handler(Number(button.dataset.answer)));
 	});
+}
+
+function sendBoard(game, round, caption, { control = null, strikes = 0, showAll = false } = {}) {
+	live.setView({
+		screen: "board",
+		teams: teamsView(game),
+		question: round.board.question.question,
+		caption,
+		answers: boardView(round.board, showAll),
+		control,
+		activeTeam: control,
+		strikes,
+		bank: round.board.bank(),
+		multiplier: round.multiplier,
+	});
+}
+
+function sendFastMoney(game, fm, player, caption, question = null, seconds = null) {
+	const playerOneHidden = question !== null && player === 1;
+	lastFastMoneyView = {
+		screen: "fast-money",
+		teams: teamsView(game),
+		team: fm.teamIndex,
+		activeTeam: fm.teamIndex,
+		caption,
+		question,
+		seconds,
+		total: fastMoneyTotal(fm, fm.revealed),
+		rows: [
+			playerOneHidden ? fm.questions.map(() => null) : fastMoneyRows(fm, 0, fm.revealed[0]),
+			fastMoneyRows(fm, 1, fm.revealed[1]),
+		],
+	};
+	live.setView(lastFastMoneyView);
 }
 
 function revealMessage(board, index) {
@@ -189,12 +208,43 @@ function renderMenu() {
 		<p>Pick someone to host and split everyone else into two families. The host reads the questions off this phone and taps each answer someone gets right.</p>
 		<button type="button" class="primary" data-action="new">New game</button>
 		<button type="button" data-action="instructions">Instructions</button>
+		${live.available ? `<button type="button" data-action="watch">Watch on a TV</button>` : ""}
 	`);
+	live.setView({ screen: "lobby" });
+	on("watch", () => renderWatchEntry());
 	on("new", () => {
 		audio.select();
 		renderSetup();
 	});
 	on("instructions", renderInstructions);
+}
+
+function renderWatchEntry(code = "", errorMessage = "") {
+	show(`
+		<h2>Watch on a TV</h2>
+		<p>Open this on the device connected to your TV, then enter the code from the host's phone. The TV shows the questions, the scores, and each answer after the host reveals it.</p>
+		<label for="watch-code">Game code</label>
+		<input type="text" id="watch-code" autocomplete="off" autocapitalize="characters" maxlength="4">
+		${errorMessage ? `<p class="error">${escapeHtml(errorMessage)}</p>` : ""}
+		<button type="button" class="primary" data-action="start-watching">Start watching</button>
+		<button type="button" data-action="back">Back</button>
+	`);
+	const input = app.querySelector("#watch-code");
+	input.value = code;
+	on("start-watching", async () => {
+		const entered = input.value.trim().toUpperCase();
+		const res = await fetch(`room/${encodeURIComponent(entered)}`).catch(() => null);
+		if (!res?.ok) {
+			const message = "We couldn't find a game with that code. Check the host's phone and try again.";
+			announce(statusEl, message);
+			renderWatchEntry(entered, message);
+			return;
+		}
+		history.replaceState(null, "", `?watch=${entered}`);
+		document.documentElement.requestFullscreen?.().catch(() => {});
+		startSpectator(app, statusEl, entered);
+	});
+	on("back", renderMenu);
 }
 
 function renderInstructions() {
@@ -275,11 +325,13 @@ function renderRoundIntro(game) {
 	show(`
 		<h2>Round ${game.round}</h2>
 		<p class="multiplier">${MULTIPLIER_NAMES[multiplier]}</p>
-		${scoresHtml(game)}
+		${scoresHtml(game.teams)}
 		<p>Bring one player from each family up for the face-off.</p>
+		${live.available ? `<p class="watch-code">Want the board on a TV? Open Family Feud on the TV's device, pick Watch on a TV, and enter <strong>${live.code}</strong>.</p>` : ""}
 		<button type="button" class="primary" data-action="face-off">Start the face-off</button>
 		${quitButtonHtml()}
 	`);
+	live.setView({ screen: "round", round: game.round, caption: MULTIPLIER_NAMES[multiplier], teams: teamsView(game) });
 	audio.intro();
 	on("face-off", () => {
 		const board = createBoard(pools.main.next());
@@ -293,10 +345,11 @@ function renderBuzzIn(game, round, message) {
 		${message ? `<p class="message">${escapeHtml(message)}</p>` : ""}
 		<p>Read the question out loud. Which family buzzed in first?</p>
 		${game.teams.map((team, i) => `<button type="button" class="team-button team-${i}" data-team="${i}">${escapeHtml(team.name)}</button>`).join("")}
-		${scoresHtml(game)}
+		${scoresHtml(game.teams)}
 		${boardHtml(round.board, "locked")}
 		${hostControlsHtml()}
 	`);
+	sendBoard(game, round, message || "Face-off! Who's going to buzz in first?");
 	app.querySelectorAll("[data-team]").forEach(button => {
 		button.addEventListener("click", () => {
 			audio.buzzIn();
@@ -313,11 +366,12 @@ function renderFaceOffAnswer(game, round, faceOff, message) {
 		<p class="message">${escapeHtml(message)}</p>
 		<p>Ask <strong>${escapeHtml(teamName(game.teams[answering].name))}</strong> for their answer. If it's on the board, tap it.</p>
 		<p class="question">${escapeHtml(round.board.question.question)}</p>
-		${scoresHtml(game, answering)}
+		${scoresHtml(game.teams, answering)}
 		${boardHtml(round.board, "tap")}
 		<button type="button" class="strike-button" data-action="miss">Not on the board</button>
 		${hostControlsHtml()}
 	`, ".message", answering);
+	sendBoard(game, round, message, { control: answering });
 
 	function record(rank) {
 		if (faceOff.firstRank === undefined) {
@@ -363,10 +417,11 @@ function renderPlayOrPass(game, round, winnerIndex, message) {
 		<p>Do they want to play this round, or pass it to the other family?</p>
 		<button type="button" class="team-button team-${winnerIndex}" data-action="play">${escapeHtml(teamDoes(game.teams[winnerIndex].name, "plays", "play"))}</button>
 		<button type="button" class="team-button team-${other}" data-action="pass">Pass to ${escapeHtml(teamName(game.teams[other].name))}</button>
-		${scoresHtml(game, winnerIndex)}
+		${scoresHtml(game.teams, winnerIndex)}
 		${boardHtml(round.board, "locked")}
 		${hostControlsHtml()}
 	`, "h1, h2", winnerIndex);
+	sendBoard(game, round, `${teamDoes(game.teams[winnerIndex].name, "wins", "win")} the face-off! Play or pass?`, { control: winnerIndex });
 	on("play", () => startMainPlay(game, round, winnerIndex));
 	on("pass", () => startMainPlay(game, round, other));
 }
@@ -397,9 +452,10 @@ function renderMainPlay(game, round, message, focusSelector = ".message") {
 		${strikesHtml(round.strikes)}
 		${boardHtml(round.board, "tap")}
 		<button type="button" class="strike-button" data-action="strike">Strike</button>
-		${scoresHtml(game, round.control)}
+		${scoresHtml(game.teams, round.control)}
 		${hostControlsHtml()}
 	`, focusSelector, round.control);
+	sendBoard(game, round, message, { control: round.control, strikes: round.strikes });
 	onAnswerTap(index => {
 		round.board.reveal(index);
 		audio.reveal();
@@ -431,9 +487,10 @@ function renderSteal(game, round) {
 		${strikesHtml(MAX_STRIKES)}
 		${boardHtml(round.board, "tap")}
 		<button type="button" class="strike-button" data-action="wrong">Not on the board</button>
-		${scoresHtml(game, stealer)}
+		${scoresHtml(game.teams, stealer)}
 		${hostControlsHtml()}
 	`, ".message", stealer);
+	sendBoard(game, round, `${teamName(game.teams[stealer].name, true)} can steal!`, { control: stealer, strikes: MAX_STRIKES });
 	onAnswerTap(index => {
 		round.board.reveal(index);
 		audio.reveal();
@@ -454,7 +511,7 @@ function awardRound(game, round, teamIndex, summary) {
 	show(`
 		<h2>${escapeHtml(teamDoes(team.name, "wins", "win"))} ${points(won)}!</h2>
 		<p class="message">${escapeHtml(summary)}</p>
-		${scoresHtml(game, teamIndex)}
+		${scoresHtml(game.teams, teamIndex)}
 		${reachedTarget
 			? `<p>${escapeHtml(teamDoes(team.name, "has", "have"))} ${team.score} points, so they're going to Fast Money!</p>
 				<button type="button" class="primary" data-action="fast-money">Play Fast Money</button>`
@@ -464,11 +521,12 @@ function awardRound(game, round, teamIndex, summary) {
 		${boardHtml(round.board, "final")}
 		${quitButtonHtml()}
 	`, "h1, h2", teamIndex);
+	sendBoard(game, round, `${teamDoes(team.name, "wins", "win")} ${points(won)}!`, { control: teamIndex, showAll: true });
 	audio.applause();
 	on("next", () => renderRoundIntro(game));
 	on("fast-money", () => {
 		const questions = Array.from({ length: FAST_MONEY_QUESTIONS }, () => pools.fastMoney.next());
-		renderFastMoneyIntro(game, { teamIndex, questions, picks: [[], []] }, 0);
+		renderFastMoneyIntro(game, { teamIndex, questions, picks: [[], []], revealed: [0, 0] }, 0);
 	});
 }
 
@@ -496,6 +554,9 @@ function renderFastMoneyIntro(game, fm, player) {
 		<button type="button" class="primary" data-action="go">Start the clock</button>
 		${quitButtonHtml()}
 	`, "h1, h2", fm.teamIndex);
+	sendFastMoney(game, fm, player, player === 0
+		? `${teamDoes(team, "is", "are")} playing Fast Money! Player 2, please leave the room.`
+		: "Player 2, come on back in!");
 	on("go", () => {
 		audio.select();
 		const queue = fm.questions.map((_, i) => i);
@@ -508,6 +569,7 @@ function renderFastMoneyIntro(game, fm, player) {
 			secondsLeft--;
 			const timerEl = app.querySelector(".timer");
 			if (timerEl) timerEl.textContent = secondsLeft;
+			live.setView({ ...lastFastMoneyView, seconds: secondsLeft });
 			if (secondsLeft <= 0) {
 				audio.strike();
 				announce(statusEl, "Time's up!");
@@ -538,6 +600,7 @@ function renderFastMoneyQuestion(game, fm, player, queue, getSecondsLeft, finish
 		${queue.length > 1 ? `<button type="button" data-action="pass">Pass</button>` : ""}
 		${quitButtonHtml()}
 	`, message ? ".message" : "h2", fm.teamIndex);
+	sendFastMoney(game, fm, player, `Player ${player + 1} is answering.`, question.question, getSecondsLeft());
 
 	function record(pick) {
 		audio.select();
@@ -579,6 +642,7 @@ function renderFastMoneyReveal(game, fm, player, revealedCount) {
 		renderFastMoneyEnd(game, fm, total);
 		return;
 	}
+	fm.revealed[player] = revealedCount;
 	const done = revealedCount === FAST_MONEY_QUESTIONS;
 	const lines = Array.from({ length: revealedCount }, (_, q) => `<li>${escapeHtml(fastMoneyLineText(fm, player, q))}</li>`);
 	const lastLine = revealedCount > 0 ? fastMoneyLineText(fm, player, revealedCount - 1) : "";
@@ -593,6 +657,10 @@ function renderFastMoneyReveal(game, fm, player, revealedCount) {
 		${nextButton}
 		${quitButtonHtml()}
 	`, revealedCount > 0 ? ".message" : "h2", fm.teamIndex);
+	const row = revealedCount > 0 ? fastMoneyRows(fm, player, revealedCount)[revealedCount - 1] : null;
+	sendFastMoney(game, fm, player, row
+		? `${row.text ? `${row.text}, ${points(row.points)}` : "No match"}. That's ${total} so far.`
+		: "Survey says...");
 	on("reveal", () => {
 		const pick = fm.picks[player][revealedCount];
 		if (pick === undefined || pick === null) {
@@ -615,10 +683,18 @@ function renderFastMoneyEnd(game, fm, total) {
 			? `They scored ${total} points. That's enough to win!`
 			: `${escapeHtml(teamName(team, true))} scored ${total} points, but they needed ${FAST_MONEY_GOAL}.`}</p>
 		<p class="fm-total" aria-hidden="true">${total}</p>
-		${scoresHtml(game, fm.teamIndex)}
+		${scoresHtml(game.teams, fm.teamIndex)}
 		<button type="button" class="primary" data-action="again">Play again</button>
 		<button type="button" data-action="menu">Back to the main menu</button>
 	`, "h1, h2", fm.teamIndex);
+	live.setView({
+		screen: "fast-money-end",
+		teams: teamsView(game),
+		team: fm.teamIndex,
+		activeTeam: fm.teamIndex,
+		caption: won ? `${teamDoes(team, "wins", "win")} Fast Money!` : `So close! ${teamName(team, true)} needed ${FAST_MONEY_GOAL}.`,
+		total,
+	});
 	if (won) {
 		audio.win();
 	} else {
@@ -642,6 +718,12 @@ async function main() {
 	document.addEventListener("keydown", () => audio.unlock(), { once: true });
 
 	renderLoading();
+	await live.start();
+	const watchCode = new URLSearchParams(location.search).get("watch");
+	if (watchCode && live.available) {
+		renderWatchEntry(watchCode.toUpperCase());
+		return;
+	}
 	try {
 		const questions = await loadQuestions();
 		pools = { main: createPool(questions.main), fastMoney: createPool(questions.fastMoney) };

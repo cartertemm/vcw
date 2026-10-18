@@ -408,3 +408,96 @@ body[data-team="1"] {
 		animation: none;
 	}
 }
+
+.watch-code strong {
+	color: var(--gold);
+	letter-spacing: 0.15em;
+	font-size: 1.2em;
+}
+
+input#watch-code {
+	font-size: 1.5rem;
+	letter-spacing: 0.3em;
+	text-transform: uppercase;
+	max-width: 10rem;
+	display: block;
+	margin: 0.5rem 0 1rem;
+	padding: 0.4rem;
+}
+
+body.spectator {
+	max-width: 72rem;
+	font-size: 1.35rem;
+}
+
+body.spectator h1 {
+	font-size: 2.4rem;
+	text-align: center;
+}
+
+body.spectator .message, body.spectator .multiplier, body.spectator .bank {
+	text-align: center;
+	font-size: 1.6rem;
+}
+
+body.spectator .team-score {
+	font-size: 3rem;
+}
+
+body.spectator .tile {
+	min-height: 4rem;
+	font-size: 1.6rem;
+}
+
+body.spectator .num {
+	min-width: 2.6rem;
+	height: 2.6rem;
+}
+
+body.spectator .strikes {
+	justify-content: center;
+}
+
+body.spectator .tile.revealed {
+	animation: none;
+}
+
+body.spectator .tile.just-revealed {
+	animation: flip 0.4s ease-out;
+}
+
+.fm-question, .timer-box {
+	text-align: center;
+}
+
+.fm-question {
+	font-size: 1.8rem;
+	font-weight: bold;
+}
+
+.fm-columns {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1rem;
+}
+
+.fm-column h2 {
+	text-align: center;
+}
+
+.fm-rows {
+	list-style: none;
+	padding: 0;
+	display: grid;
+	gap: 0.5rem;
+}
+
+.fm-rows .tile {
+	padding: 0.3rem 0.75rem;
+}
+
+@media (max-width: 30rem) {
+	.fm-columns {
+		grid-template-columns: 1fr;
+	}
+}
