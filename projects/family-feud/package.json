@@ -1,0 +1,8 @@
+{
+	"name": "family-feud",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "node --test"
+	}
+}

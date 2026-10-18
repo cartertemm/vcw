@@ -1,0 +1,379 @@
+:root {
+	--bg: #06173d;
+	--panel: #0b3d91;
+	--tile: #1556c4;
+	--tile-edge: #f2c230;
+	--gold: #f2c230;
+	--text: #ffffff;
+	--muted: #c9d6f5;
+	--red: #e0281b;
+}
+
+html {
+	background: var(--bg);
+}
+
+body {
+	font-family: system-ui, sans-serif;
+	max-width: 44rem;
+	margin: 0 auto;
+	padding: 1.5rem 1rem 3rem;
+	line-height: 1.5;
+	background: radial-gradient(circle at top, #123a85, var(--bg) 70%) fixed;
+	color: var(--text);
+	min-height: 100vh;
+	box-sizing: border-box;
+}
+
+h1, h2, h3 {
+	outline: none;
+	line-height: 1.25;
+}
+
+h1:focus-visible, h2:focus-visible, .message:focus-visible {
+	outline: 2px solid var(--gold);
+	outline-offset: 2px;
+}
+
+.message {
+	outline: none;
+	font-size: 1.1rem;
+}
+
+.logo {
+	font-size: 2.75rem;
+	text-align: center;
+	color: var(--gold);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	text-shadow: 0 3px 0 #8a5a00, 0 0 18px rgba(242, 194, 48, 0.5);
+}
+
+button {
+	font-size: 1rem;
+	padding: 0.6rem 1.1rem;
+	margin: 0.25rem 0.25rem 0.25rem 0;
+	cursor: pointer;
+	border: 2px solid var(--muted);
+	border-radius: 0.5rem;
+	background: var(--panel);
+	color: var(--text);
+}
+
+button:focus-visible {
+	outline: 3px solid var(--gold);
+	outline-offset: 2px;
+}
+
+button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+button.primary {
+	background: var(--gold);
+	border-color: var(--gold);
+	color: #1b1300;
+	font-weight: bold;
+}
+
+button.strike-button {
+	background: var(--red);
+	border-color: var(--red);
+	font-weight: bold;
+}
+
+button.quiet {
+	background: transparent;
+	border-color: transparent;
+	color: var(--muted);
+	text-decoration: underline;
+}
+
+label {
+	display: block;
+	margin-top: 0.75rem;
+	font-weight: bold;
+}
+
+label.inline {
+	display: inline-flex;
+	gap: 0.4rem;
+	align-items: center;
+	font-weight: normal;
+	color: var(--muted);
+}
+
+input[type="text"], input[type="number"] {
+	font-size: 1rem;
+	display: block;
+	margin: 0.5rem 0 1rem;
+	padding: 0.4rem;
+	width: 100%;
+	max-width: 20rem;
+	box-sizing: border-box;
+}
+
+.error {
+	color: #ff8a80;
+	font-weight: bold;
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+.multiplier, .bank {
+	color: var(--gold);
+	font-weight: bold;
+	font-size: 1.2rem;
+}
+
+.question {
+	font-style: italic;
+}
+
+.scores {
+	display: flex;
+	gap: 0.75rem;
+	margin: 1rem 0;
+}
+
+.team {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 0.5rem;
+	border: 3px solid var(--panel);
+	border-radius: 0.75rem;
+	background: rgba(0, 0, 0, 0.3);
+}
+
+.team.in-control {
+	border-color: var(--gold);
+}
+
+.team-name {
+	font-weight: bold;
+	text-align: center;
+}
+
+.team-score {
+	font-size: 1.75rem;
+	font-weight: bold;
+	color: var(--gold);
+	font-variant-numeric: tabular-nums;
+}
+
+.board {
+	list-style: none;
+	padding: 0.75rem;
+	margin: 1rem 0;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-auto-flow: column;
+	grid-template-rows: repeat(4, auto);
+	gap: 0.5rem;
+	background: #081f52;
+	border: 4px solid var(--gold);
+	border-radius: 1rem;
+}
+
+@media (max-width: 30rem) {
+	.board {
+		grid-template-columns: 1fr;
+		grid-auto-flow: row;
+		grid-template-rows: none;
+	}
+}
+
+.tile, .tile > button {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 2.75rem;
+	box-sizing: border-box;
+}
+
+.tile {
+	border: 2px solid var(--tile-edge);
+	border-radius: 0.4rem;
+	background: linear-gradient(var(--tile), #0d3a8a);
+	font-weight: bold;
+	text-transform: uppercase;
+}
+
+.tile > button {
+	width: 100%;
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	font-weight: bold;
+	text-transform: uppercase;
+	text-align: left;
+	padding: 0.3rem 0.5rem;
+}
+
+.tile.revealed {
+	padding: 0.3rem 0.5rem;
+	animation: flip 0.4s ease-out;
+}
+
+.tile.unfound {
+	opacity: 0.6;
+	animation: none;
+}
+
+.num {
+	display: inline-grid;
+	place-items: center;
+	min-width: 1.8rem;
+	height: 1.8rem;
+	border-radius: 50%;
+	background: var(--panel);
+	border: 2px solid var(--gold);
+	color: var(--gold);
+}
+
+.answer-text {
+	flex: 1;
+}
+
+.answer-points {
+	min-width: 2.2rem;
+	text-align: center;
+	background: var(--panel);
+	border-radius: 0.25rem;
+}
+
+.hidden-answer .answer-text, .hidden-answer .answer-points {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+.host-view .hidden-answer .answer-text, .host-view .hidden-answer .answer-points {
+	position: static;
+	width: auto;
+	height: auto;
+	overflow: visible;
+	clip: auto;
+	opacity: 0.55;
+	font-style: italic;
+}
+
+.hidden-answer {
+	justify-content: center;
+}
+
+.hidden-answer:not(:has(button)) {
+	padding: 0.3rem 0.5rem;
+}
+
+.strikes {
+	display: flex;
+	gap: 0.5rem;
+	min-height: 2.5rem;
+}
+
+.strikes span, .strike-flash span {
+	color: var(--red);
+	font-weight: 900;
+	font-size: 2.25rem;
+	line-height: 1;
+	text-shadow: 0 0 6px #000;
+}
+
+.strike-flash {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1.5rem;
+	pointer-events: none;
+	background: rgba(0, 0, 0, 0.35);
+	animation: fade 0.9s ease-out forwards;
+}
+
+.strike-flash span {
+	font-size: 9rem;
+	border: 0.6rem solid var(--red);
+	border-radius: 0.75rem;
+	padding: 0 1.5rem;
+	background: rgba(0, 0, 0, 0.5);
+}
+
+.host-controls {
+	margin-top: 1.5rem;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.timer-box {
+	font-size: 1.25rem;
+	font-weight: bold;
+}
+
+.timer {
+	color: var(--gold);
+	font-size: 2rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.fm-answers button {
+	display: block;
+	width: 100%;
+	text-align: left;
+}
+
+.fm-total {
+	font-size: 3rem;
+	font-weight: bold;
+	color: var(--gold);
+	text-align: center;
+	margin: 0.5rem 0;
+}
+
+.fm-lines li {
+	margin-bottom: 0.5rem;
+}
+
+@keyframes flip {
+	from {
+		transform: rotateX(90deg);
+	}
+	to {
+		transform: rotateX(0);
+	}
+}
+
+@keyframes fade {
+	0% {
+		opacity: 1;
+	}
+	70% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tile.revealed, .strike-flash {
+		animation: none;
+	}
+}

@@ -1,0 +1,54 @@
+export const DEFAULT_TARGET = 300;
+export const MAX_STRIKES = 3;
+export const FAST_MONEY_GOAL = 200;
+export const FAST_MONEY_QUESTIONS = 5;
+export const FAST_MONEY_SECONDS = [20, 25];
+
+const ROUND_MULTIPLIERS = [1, 1, 2, 3];
+
+export function multiplierForRound(roundNumber) {
+	return ROUND_MULTIPLIERS[roundNumber - 1] ?? 1;
+}
+
+// Ranks are 0-based answer indexes, or null for an answer not on the board.
+export function faceOffWinner(firstRank, secondRank) {
+	if (firstRank === null && secondRank === null) return null;
+	if (secondRank === null) return "first";
+	if (firstRank === null) return "second";
+	return firstRank <= secondRank ? "first" : "second";
+}
+
+export function createBoard(question) {
+	const revealed = new Set();
+	return {
+		question,
+		reveal(index) {
+			revealed.add(index);
+			return question.answers[index].points;
+		},
+		isRevealed(index) {
+			return revealed.has(index);
+		},
+		isCleared() {
+			return revealed.size === question.answers.length;
+		},
+		bank() {
+			return [...revealed].reduce((sum, i) => sum + question.answers[i].points, 0);
+		},
+	};
+}
+
+export function validateSetup(teamOneText, teamTwoText, targetText) {
+	const teams = [teamOneText.trim(), teamTwoText.trim()];
+	if (teams.some(name => name === "")) {
+		return { valid: false, error: "Enter a name for both teams." };
+	}
+	if (teams[0].toLowerCase() === teams[1].toLowerCase()) {
+		return { valid: false, error: "The two teams need different names." };
+	}
+	const target = Number(targetText);
+	if (!Number.isInteger(target) || target < 1) {
+		return { valid: false, error: "The target score must be a whole number above 0." };
+	}
+	return { valid: true, teams, target };
+}

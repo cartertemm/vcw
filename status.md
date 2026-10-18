@@ -7,6 +7,7 @@ This document tracks both the status of the things that I've built (OK fine my a
 - Catch Phrase Companion. A screen reader first web app that emulates the Hasbro Electronic Catch Phrase handheld button for button, extended with an "after dark" NSFW category.
 - Data Encoder/Decoder. A minimalist single-file web application for encoding and decoding text in 40+ formats. Sort of like an accessibility first Cyberchef with only the most common input/output formats.
 - Falsehoods About Time with Explanations. Explanations for all 112 things that programmers falsely believe about time.
+- Family Feud. A screen reader first host assistant for playing Family Feud in person, with face-offs, steals, double and triple rounds, and Fast Money, using nearly 4,000 real survey questions.
 - Focus. Brainwave entrainment and soundscape sculpting. A single-file, zero-dependency web app inspired by papers on the impact of sonic frequencies on mood (creativity, focus and concentration, etc). Sounded better on paper than in reality, but sometimes you gotta try doing something to know that you're in way over your head.
 - Hello World. Welcome to Vibe Code Weekly!
 - Most Likely To. Electronic version of the "Most Likely To" card game, with both SFW and NSFW packs.
