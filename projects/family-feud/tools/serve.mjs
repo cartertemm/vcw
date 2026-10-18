@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
@@ -24,4 +25,12 @@ http.createServer(async (req, res) => {
 		res.writeHead(404);
 		res.end('not found');
 	}
-}).listen(PORT, () => console.log(`Serving on http://localhost:${PORT}`));
+}).listen(PORT, () => {
+	console.log(`Serving on http://localhost:${PORT}`);
+	const tailscale = spawn('tailscale', ['serve', String(PORT)], { stdio: 'inherit' });
+	tailscale.on('error', () => console.log('tailscale not found, serving locally only'));
+	process.on('SIGINT', () => {
+		tailscale.kill();
+		process.exit();
+	});
+});
