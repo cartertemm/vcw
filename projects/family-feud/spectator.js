@@ -2,12 +2,16 @@ import { escapeHtml, announce } from "./dom-utils.js";
 import { createAudio } from "./audio.js";
 import { scoresHtml, strikesHtml, flashStrike } from "./ui.js";
 
+function answerHtml(text) {
+	return escapeHtml(text).replaceAll("/", "/<wbr>");
+}
+
 function boardHtml(answers, previous) {
 	const tiles = answers.map((answer, i) => {
 		const num = `<span class="num">${i + 1}</span>`;
 		if (!answer) return `<li class="tile hidden-answer">${num}</li>`;
 		const isNew = previous && !previous[i];
-		return `<li class="tile revealed${answer.found ? "" : " unfound"}${isNew ? " just-revealed" : ""}">${num}<span class="answer-text">${escapeHtml(answer.text)}</span><span class="answer-points">${answer.points}</span></li>`;
+		return `<li class="tile revealed${answer.found ? "" : " unfound"}${isNew ? " just-revealed" : ""}">${num}<span class="answer-text">${answerHtml(answer.text)}</span><span class="answer-points">${answer.points}</span></li>`;
 	});
 	return `<ol class="board" aria-label="Survey board">${tiles.join("")}</ol>`;
 }
@@ -18,7 +22,7 @@ function fastMoneyColumnHtml(label, rows) {
 			<h2>${label}</h2>
 			<ol class="fm-rows">
 				${rows.map(row => row
-					? `<li class="tile revealed"><span class="answer-text">${escapeHtml(row.text || "No match")}</span><span class="answer-points">${row.points}</span></li>`
+					? `<li class="tile revealed"><span class="answer-text">${answerHtml(row.text || "No match")}</span><span class="answer-points">${row.points}</span></li>`
 					: `<li class="tile hidden-answer"></li>`).join("")}
 			</ol>
 		</section>
@@ -36,7 +40,6 @@ function viewHtml(view, previous) {
 		case "board":
 			return `
 				${scoresHtml(view.teams, view.control)}
-				<h1>${escapeHtml(view.question)}</h1>
 				<p class="message">${escapeHtml(view.caption)}</p>
 				${view.bank === null ? "" : `<p class="bank">Points on the board: ${view.bank}${view.multiplier > 1 ? ` (times ${view.multiplier})` : ""}</p>`}
 				${strikesHtml(view.strikes)}
@@ -47,7 +50,6 @@ function viewHtml(view, previous) {
 				${scoresHtml(view.teams, view.team)}
 				<h1>Fast Money</h1>
 				<p class="message">${escapeHtml(view.caption)}</p>
-				${view.question ? `<p class="fm-question">${escapeHtml(view.question)}</p>` : ""}
 				<p class="fm-total">${view.total}</p>
 				<div class="fm-columns">
 					${fastMoneyColumnHtml("Player 1", view.rows[0])}
