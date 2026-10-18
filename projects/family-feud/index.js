@@ -186,13 +186,48 @@ function renderMenu() {
 	show(`
 		<h1 class="logo">Family Feud</h1>
 		<p>Pick someone to host and split everyone else into two families. The host reads the questions off this phone and taps each answer someone gets right.</p>
-		<p>If you use a screen reader, put one earbud in so nobody else hears the answers.</p>
 		<button type="button" class="primary" data-action="new">New game</button>
+		<button type="button" data-action="instructions">Instructions</button>
 	`);
 	on("new", () => {
 		audio.select();
 		renderSetup();
 	});
+	on("instructions", renderInstructions);
+}
+
+function renderInstructions() {
+	show(`
+		<article class="instructions">
+			<h2>How to play</h2>
+			<p><strong>Host: Read these rules out loud before you start.</strong></p>
+
+			<h3>Get ready</h3>
+			<p>Choose one person to be the host. Everyone else splits into two families. The host reads the questions and uses this screen. Players must not look at the host's screen because it can show the answers.</p>
+
+			<h3>Face-off</h3>
+			<p>One player from each family comes forward. The host reads the question. The first player to buzz in gives one answer. If it is not the top answer, the other player gets one chance. The family with the higher answer chooses to play the round or pass it to the other family.</p>
+
+			<h3>Playing a round</h3>
+			<p>The family in control answers one person at a time. Each person gives one answer without help from anyone else. An answer on the board is shown and adds points to the round. An answer that is not on the board earns a strike.</p>
+
+			<h3>Three strikes and stealing</h3>
+			<p>After three strikes, the other family gets one chance to steal. They may talk together before giving one answer. If that answer is on the board, they win all the points from the round. If it is not, the family that had control wins the points.</p>
+
+			<h3>Scoring and winning</h3>
+			<p>Only the family that wins the round gets its points. Some rounds are worth double or triple points, and the screen will say when that happens. The first family to reach the chosen winning score moves on to Fast Money.</p>
+
+			<h3>Fast Money</h3>
+			<p>The winning family chooses two players. Player 2 leaves the room and must not listen. Player 1 gets 20 seconds to answer five questions. Player 2 then gets 25 seconds to answer the same questions. If Player 2 repeats an answer, they must give a different one. The two players need 200 points together to win.</p>
+
+			<h3>Keep it fair</h3>
+			<p>Do not use phones, the internet, or other hints. Do not call out an answer when it is not your turn. Families may talk together only when they get a chance to steal. An answer that is already showing cannot be used again. The host decides whether an answer is close enough to one on the board. Please accept the host's decision and keep playing.</p>
+		</article>
+		<button type="button" class="primary" data-action="start">Start a new game</button>
+		<button type="button" data-action="back">Back to the main menu</button>
+	`);
+	on("start", () => renderSetup());
+	on("back", renderMenu);
 }
 
 function renderSetup(previous = { one: "", two: "", target: String(DEFAULT_TARGET) }, errorMessage = "") {
