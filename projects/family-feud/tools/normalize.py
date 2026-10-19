@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 """Normalize the Family Feud Question Database workbook into game JSON.
 
-Reads the multi-sheet Excel database and writes three files to data/:
+Reads the multi-sheet Excel database and writes two files to data/:
   - questions.json   scored main-game questions (answers carry survey points)
   - no-points.json   questions whose answers lack survey values
-  - fast-money.json  Fast Money prompts (one or two recorded answers each)
 
 Text is fixed with tools/text-fixes.json (typos, point typos, names) and
 converted from Title Case to sentence case. Casing needs nltk:
@@ -27,7 +26,6 @@ FIXES = json.loads((HERE / "text-fixes.json").read_text(encoding="utf-8"))
 
 PAIRED_SHEETS = {"3 Answers", "4 Answers", "5 Answers", "6 Answers", "7 Answers", "Sheet1"}
 NOPOINTS_SHEETS = {"No Points 3", "No Points 4", "No Points 5", "No Points 6", "No Points 7"}
-FASTMONEY_SHEETS = {"Fast Money", "Broken Fast Money"}
 
 # Some cells are double-encoded as UTF-8 and Windows-1252
 MOJIBAKE = [
@@ -264,7 +262,7 @@ def dedupe(items):
 
 def main():
 	wb = openpyxl.load_workbook(WORKBOOK, read_only=True, data_only=True)
-	scored, nopoints, fastmoney = [], [], []
+	scored, nopoints = [], []
 	for ws in wb.worksheets:
 		rows = list(ws.iter_rows(values_only=True))[1:]
 		for row in rows:
@@ -274,10 +272,6 @@ def main():
 				parsed = parse_paired(row)
 				if parsed:
 					scored.append(parsed)
-			elif ws.title in FASTMONEY_SHEETS:
-				parsed = parse_paired(row)
-				if parsed:
-					fastmoney.append(parsed)
 			elif ws.title in NOPOINTS_SHEETS:
 				parsed = parse_nopoints(row)
 				if parsed:
@@ -285,10 +279,9 @@ def main():
 
 	scored = dedupe(filter(None, (finish(item, True) for item in scored)))
 	nopoints = dedupe(filter(None, (finish(item, False) for item in nopoints)))
-	fastmoney = dedupe(filter(None, (finish(item, True) for item in fastmoney if item["question"] != "Question")))
 
 	DATA.mkdir(exist_ok=True)
-	for name, items in (("questions", scored), ("no-points", nopoints), ("fast-money", fastmoney)):
+	for name, items in (("questions", scored), ("no-points", nopoints)):
 		path = DATA / f"{name}.json"
 		path.write_text(json.dumps(items, ensure_ascii=False, indent=0), encoding="utf-8")
 		print(f"{name}.json: {len(items)} questions")
