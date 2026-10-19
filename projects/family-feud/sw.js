@@ -14,7 +14,6 @@ const ASSETS = [
 	'spectator.js',
 	'index.js',
 	'data/questions.json',
-	'data/fast-money.json',
 	'manifest.json',
 	'assets/icon-180.png',
 	'assets/icon-192.png',

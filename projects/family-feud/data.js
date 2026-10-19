@@ -33,15 +33,9 @@ export function cleanQuestions(questions) {
 }
 
 export async function loadQuestions(fetchFn = fetch) {
-	const [mainRes, fastRes] = await Promise.all([
-		fetchFn("data/questions.json"),
-		fetchFn("data/fast-money.json"),
-	]);
-	if (!mainRes.ok || !fastRes.ok) {
+	const res = await fetchFn("data/questions.json");
+	if (!res.ok) {
 		throw new Error("Failed to load questions");
 	}
-	return {
-		main: cleanQuestions(await mainRes.json()),
-		fastMoney: cleanQuestions(await fastRes.json()),
-	};
+	return cleanQuestions(await res.json());
 }

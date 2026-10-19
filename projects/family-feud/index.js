@@ -33,7 +33,7 @@ const audio = Object.fromEntries(Object.keys(localAudio).map(name => [
 ]));
 audio.unlock = localAudio.unlock;
 
-let pools = null;
+let pool = null;
 let showHiddenAnswers = false;
 let lastFastMoneyView = null;
 
@@ -321,7 +321,7 @@ function renderRoundIntro(game) {
 	live.setView({ screen: "round", round: game.round, caption: MULTIPLIER_NAMES[multiplier], teams: teamsView(game) });
 	audio.intro();
 	on("face-off", () => {
-		const board = createBoard(pools.main.next());
+		const board = createBoard(pool.next());
 		renderBuzzIn(game, { board, multiplier }, "");
 	});
 }
@@ -512,7 +512,7 @@ function awardRound(game, round, teamIndex, summary) {
 	audio.applause();
 	on("next", () => renderRoundIntro(game));
 	on("fast-money", () => {
-		const questions = Array.from({ length: FAST_MONEY_QUESTIONS }, () => pools.fastMoney.next());
+		const questions = Array.from({ length: FAST_MONEY_QUESTIONS }, () => pool.next());
 		renderFastMoneyIntro(game, { teamIndex, questions, picks: [[], []], revealed: [0, 0] }, 0);
 	});
 }
@@ -694,7 +694,7 @@ async function main() {
 	}
 	try {
 		const questions = await loadQuestions();
-		pools = { main: createPool(questions.main), fastMoney: createPool(questions.fastMoney) };
+		pool = createPool(questions);
 	} catch (error) {
 		renderError();
 		return;

@@ -18,16 +18,15 @@ test("createPool hands out every item before repeating", () => {
 	assert.ok([1, 2, 3].includes(pool.next()));
 });
 
-test("loadQuestions reads both pools from the real data files", async () => {
+test("loadQuestions reads the real questions, each with at least 3 answers", async () => {
 	const fakeFetch = async path => {
 		const text = await readFile(new URL(`../${path}`, import.meta.url), "utf8");
 		return { ok: true, json: async () => JSON.parse(text) };
 	};
-	const { main, fastMoney } = await loadQuestions(fakeFetch);
-	assert.ok(main.length > 3000);
-	assert.ok(fastMoney.length > 1000);
-	for (const q of [...main, ...fastMoney]) {
-		assert.ok(q.answers.length > 0);
+	const questions = await loadQuestions(fakeFetch);
+	assert.ok(questions.length > 3000);
+	for (const q of questions) {
+		assert.ok(q.answers.length >= 3);
 		assert.ok(q.answers.every(a => a.points > 0));
 	}
 });
