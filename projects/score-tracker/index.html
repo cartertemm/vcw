@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Score Tracker</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #111;
+			--fg: #f5f5f5;
+			--line: #333;
+			--button: #222;
+		}
+
+		body {
+			margin: 0;
+			font-family: system-ui, sans-serif;
+			background: var(--bg);
+			color: var(--fg);
+		}
+
+		header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 1rem;
+			padding: 1rem;
+			border-bottom: 1px solid var(--line);
+		}
+
+		header h1 {
+			margin: 0;
+			font-size: 1.5rem;
+		}
+
+		main {
+			max-width: 48rem;
+			margin: 0 auto;
+			padding: 1rem;
+		}
+
+		h2:focus {
+			outline: none;
+		}
+
+		button, input, select {
+			font: inherit;
+			padding: 0.5rem 1rem;
+			border-radius: 0.5rem;
+			border: 1px solid #666;
+			background: var(--button);
+			color: var(--fg);
+		}
+
+		button {
+			cursor: pointer;
+		}
+
+		:focus-visible {
+			outline: 3px solid #fff;
+			outline-offset: 2px;
+		}
+
+		ul {
+			list-style: none;
+			padding: 0;
+			margin: 0 0 1.5rem;
+		}
+
+		.score-row, .manage-row {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+			padding: 1rem 0;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.score-row {
+			font-size: 2rem;
+		}
+
+		.score-row button {
+			width: 3.5rem;
+			height: 3.5rem;
+			padding: 0;
+			font-size: 2rem;
+			line-height: 1;
+		}
+
+		.team-name {
+			flex: 1;
+			font-weight: bold;
+			overflow-wrap: anywhere;
+		}
+
+		.score {
+			min-width: 3ch;
+			text-align: right;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.manage-row {
+			font-size: 1.25rem;
+		}
+
+		.field {
+			display: flex;
+			flex-direction: column;
+			gap: 0.25rem;
+			margin-bottom: 1rem;
+		}
+
+		.actions {
+			display: flex;
+			gap: 1rem;
+		}
+
+		.visually-hidden {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip: rect(0 0 0 0);
+			white-space: nowrap;
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<h1>Score Tracker</h1>
+		<button type="button" id="manage-button">Manage teams</button>
+	</header>
+	<main></main>
+	<div id="status" class="visually-hidden" aria-live="polite"></div>
+	<script>
+		const COLORS = {
+			Red: "#ff5c5c",
+			Orange: "#ff9f43",
+			Yellow: "#ffd93d",
+			Green: "#4cd964",
+			Teal: "#2dd4bf",
+			Blue: "#5ab0ff",
+			Purple: "#b78cff",
+			Pink: "#ff7eb6",
+		};
+		const API_PATH = "/api/teams";
+		const TONE_SECONDS = 0.15;
+		const TONE_VOLUME = 0.2;
+
+		const main = document.querySelector("main");
+		const status = document.getElementById("status");
+		let teams = [];
+		let saveQueue = Promise.resolve();
+		let audio = null;
+
+		function el(tag, props = {}, ...children) {
+			const node = document.createElement(tag);
+			Object.assign(node, props);
+			node.append(...children);
+			return node;
+		}
+
+		function announce(message) {
+			status.textContent = "";
+			setTimeout(() => { status.textContent = message; }, 50);
+		}
+
+		function colorValue(color) {
+			return COLORS[color] || color || "inherit";
+		}
+
+		function randomColor() {
+			const used = new Set(teams.map(team => team.color));
+			const unused = Object.keys(COLORS).filter(name => !used.has(name));
+			const choices = unused.length ? unused : Object.keys(COLORS);
+			return choices[Math.floor(Math.random() * choices.length)];
+		}
+
+		function playTone(startHz, endHz) {
+			audio ??= new (window.AudioContext || window.webkitAudioContext)();
+			const oscillator = audio.createOscillator();
+			const gain = audio.createGain();
+			const now = audio.currentTime;
+			oscillator.frequency.setValueAtTime(startHz, now);
+			oscillator.frequency.exponentialRampToValueAtTime(endHz, now + TONE_SECONDS);
+			gain.gain.setValueAtTime(TONE_VOLUME, now);
+			gain.gain.exponentialRampToValueAtTime(0.001, now + TONE_SECONDS);
+			oscillator.connect(gain).connect(audio.destination);
+			oscillator.start(now);
+			oscillator.stop(now + TONE_SECONDS);
+		}
+
+		function save() {
+			const body = JSON.stringify(teams);
+			saveQueue = saveQueue
+				.then(() => fetch(API_PATH, { method: "PUT", headers: { "Content-Type": "application/json" }, body }))
+				.then(response => {
+					if (!response.ok) throw new Error(response.statusText);
+				})
+				.catch(() => announce("Could not save. Is the server running?"));
+		}
+
+		function show(...nodes) {
+			main.replaceChildren(...nodes);
+			main.querySelector("h2")?.focus();
+		}
+
+		function heading(text) {
+			return el("h2", { textContent: text, tabIndex: -1 });
+		}
+
+		function showHome() {
+			if (teams.length) showScoreboard();
+			else showWelcome();
+		}
+
+		function showWelcome() {
+			const button = el("button", { type: "button", textContent: "Manage teams", onclick: showManage });
+			show(heading("No teams yet. Add some to get started."), button);
+		}
+
+		function changeScore(team, delta, scoreNode) {
+			const newScore = Math.max(0, team.score + delta);
+			if (newScore === team.score) {
+				announce(`${team.name}, ${team.score}`);
+				return;
+			}
+			team.score = newScore;
+			scoreNode.textContent = newScore;
+			if (delta > 0) playTone(440, 880);
+			else playTone(660, 330);
+			announce(`${team.name}, ${newScore}`);
+			save();
+		}
+
+		function showScoreboard() {
+			const rows = teams.map(team => {
+				const scoreNode = el("span", { className: "score", textContent: team.score });
+				const minus = el("button", { type: "button", textContent: "−", ariaLabel: `Decrease ${team.name}` });
+				const plus = el("button", { type: "button", textContent: "+", ariaLabel: `Increase ${team.name}` });
+				minus.onclick = () => changeScore(team, -1, scoreNode);
+				plus.onclick = () => changeScore(team, 1, scoreNode);
+				const name = el("span", { className: "team-name", textContent: team.name });
+				name.style.color = colorValue(team.color);
+				return el("li", { className: "score-row" }, minus, name, scoreNode, plus);
+			});
+			show(heading("Scores"), el("ul", {}, ...rows));
+		}
+
+		function removeTeam(team) {
+			teams = teams.filter(other => other !== team);
+			save();
+			showManage();
+			announce(`Removed ${team.name}`);
+		}
+
+		function showManage() {
+			const rows = teams.map(team => {
+				const name = el("span", { className: "team-name", textContent: team.name });
+				name.style.color = colorValue(team.color);
+				const remove = el("button", { type: "button", textContent: "Remove", ariaLabel: `Remove ${team.name}`, onclick: () => removeTeam(team) });
+				return el("li", { className: "manage-row" }, name, remove);
+			});
+			const list = rows.length ? el("ul", {}, ...rows) : el("p", { textContent: "No teams yet." });
+			const actions = el("div", { className: "actions" },
+				el("button", { type: "button", textContent: "Add team", onclick: showAddTeam }),
+				el("button", { type: "button", textContent: "Done", onclick: showHome }),
+			);
+			show(heading("Manage teams"), list, actions);
+		}
+
+		function showAddTeam() {
+			const nameInput = el("input", { id: "team-name", type: "text", required: true, autocomplete: "off" });
+			const colorSelect = el("select", { id: "team-color" },
+				el("option", { value: "", textContent: "Random" }),
+				...Object.keys(COLORS).map(color => el("option", { value: color, textContent: color })),
+			);
+			const form = el("form", {},
+				el("div", { className: "field" }, el("label", { htmlFor: "team-name", textContent: "Name" }), nameInput),
+				el("div", { className: "field" }, el("label", { htmlFor: "team-color", textContent: "Color (optional)" }), colorSelect),
+				el("div", { className: "actions" },
+					el("button", { type: "submit", textContent: "Add" }),
+					el("button", { type: "button", textContent: "Cancel", onclick: showManage }),
+				),
+			);
+			form.onsubmit = event => {
+				event.preventDefault();
+				const name = nameInput.value.trim();
+				if (!name) {
+					nameInput.focus();
+					return;
+				}
+				teams.push({ name, color: colorSelect.value || randomColor(), score: 0 });
+				save();
+				showManage();
+				announce(`Added ${name}`);
+			};
+			show(heading("Add team"), form);
+			nameInput.focus();
+		}
+
+		async function load() {
+			try {
+				const response = await fetch(API_PATH);
+				teams = await response.json();
+			} catch {
+				teams = [];
+				announce("Could not load teams. Is the server running?");
+			}
+			showHome();
+		}
+
+		document.getElementById("manage-button").onclick = showManage;
+		load();
+	</script>
+</body>
+</html>
