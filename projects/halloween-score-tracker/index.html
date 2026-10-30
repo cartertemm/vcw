@@ -163,6 +163,48 @@
 			50% { transform: scale(1.15); }
 		}
 
+		.score-card.dead {
+			--team: #9a9fab;
+			grid-template-areas: "rip rip rip" "name name name" "minus score plus";
+			padding-top: 1.75rem;
+			border-radius: 9rem 9rem 0.75rem 0.75rem / 4rem 4rem 0.75rem 0.75rem;
+			background: linear-gradient(180deg, #6b707c 0%, #3d4049 100%);
+			border: 1px solid #7a7f8b;
+			border-bottom: 10px solid #4a3626;
+		}
+
+		.score-card.dead::before {
+			content: "RIP";
+			grid-area: rip;
+			text-align: center;
+			font-family: Georgia, "Times New Roman", serif;
+			font-size: 1.75rem;
+			font-weight: 700;
+			letter-spacing: 0.3em;
+			color: #1f2228;
+			text-shadow: 0 1px 0 rgb(255 255 255 / 0.3);
+		}
+
+		.score-card.dead .team-name {
+			color: #f0f1f4;
+		}
+
+		.score-card.dead .plus {
+			background: var(--team-live);
+			box-shadow: 0 4px 16px color-mix(in srgb, var(--team-live) 45%, transparent);
+		}
+
+		.score-card.rising {
+			animation: rise 0.7s ease-out;
+		}
+
+		@keyframes rise {
+			0% { transform: translateY(70%) rotate(-4deg); clip-path: inset(0 0 70% 0); }
+			45% { transform: translateY(25%) rotate(3deg); clip-path: inset(0 0 25% 0); }
+			75% { transform: translateY(-6%) rotate(-1deg); clip-path: inset(0); }
+			100% { transform: none; clip-path: inset(0); }
+		}
+
 		.score-button {
 			flex: none;
 			width: 4.5rem;
@@ -460,7 +502,14 @@
 
 		function teamStyle(node, team) {
 			node.style.setProperty("--team", colorValue(team.color));
+			node.style.setProperty("--team-live", colorValue(team.color));
 			return node;
+		}
+
+		function restartAnimation(node, className) {
+			node.classList.remove(className);
+			void node.offsetWidth;
+			node.classList.add(className);
 		}
 
 		function changeScore(team, delta, scoreNode, minus) {
@@ -469,14 +518,19 @@
 				announce(`${team.name}, ${team.score}`);
 				return;
 			}
+			const card = scoreNode.closest(".score-card");
+			const wasDead = team.score === 0;
 			team.score = newScore;
 			scoreNode.textContent = newScore;
 			minus.ariaDisabled = String(newScore === 0);
-			scoreNode.classList.remove("bump");
-			void scoreNode.offsetWidth;
-			scoreNode.classList.add("bump");
+			card.classList.toggle("dead", newScore === 0);
+			restartAnimation(scoreNode, "bump");
+			if (wasDead) restartAnimation(card, "rising");
 			playSound(delta > 0 ? "plus" : "minus");
-			announce(`${team.name}, ${newScore}`);
+			let message = `${team.name}, ${newScore}`;
+			if (newScore === 0) message += ", RIP";
+			else if (wasDead) message += ", back from the dead";
+			announce(message);
 			save();
 		}
 
@@ -488,7 +542,7 @@
 				minus.onclick = () => changeScore(team, -1, scoreNode, minus);
 				plus.onclick = () => changeScore(team, 1, scoreNode, minus);
 				const name = el("span", { className: "team-name", textContent: team.name });
-				return teamStyle(el("li", { className: "score-card" }, name, minus, scoreNode, plus), team);
+				return teamStyle(el("li", { className: team.score === 0 ? "score-card dead" : "score-card" }, name, minus, scoreNode, plus), team);
 			});
 			const title = heading("Scores");
 			title.className = "visually-hidden";
