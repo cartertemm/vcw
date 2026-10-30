@@ -90,7 +90,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
 	server = HTTPServer((HOST, PORT), partial(Handler, directory=str(ROOT)))
-	print(f"Score Tracker running at http://localhost:{PORT}")
+	print(f"Halloween Score Tracker running at http://localhost:{PORT}")
 	print(f"Saving teams to {CSV_PATH}")
 	try:
 		server.serve_forever()

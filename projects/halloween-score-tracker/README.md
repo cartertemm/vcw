@@ -1,4 +1,6 @@
-# Score Tracker
+# Halloween Score Tracker
+
+We were playing some in-person games for Halloween. Who wants to pick up a pen and paper when you can just vibecode scoring into existence, with sound effects to boot?
 
 Keep score for in-person games with any number of teams. Each team has a name, a color, and a score. Press plus or minus to change a score. Scores never go below 0.
 
