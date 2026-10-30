@@ -20,3 +20,9 @@ Then open http://localhost:8000 in your browser. Press Ctrl+C in the terminal to
 2. Select **Add team**, type a name, and pick a color. If you leave the color on **Random**, the app picks one for you.
 3. Select **Done** to go to the scoreboard.
 4. Press **+** or **−** next to a team to change its score.
+
+## Sounds
+
+Each press plays a random sound from `sounds/plus` or `sounds/minus`. To add or remove a sound, add or delete a file in that folder and reload the page. The app supports OGG, MP3, WAV, M4A, and FLAC files.
+
+Older iPhones can't play OGG files. If you add an OGG file, also add an MP3 copy with the same name, such as `boo.ogg` and `boo.mp3`. The app plays only one of the two, picking the one the browser supports.

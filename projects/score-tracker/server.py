@@ -11,6 +11,10 @@ FIELDS = ["name", "color", "score"]
 HOST = "127.0.0.1"
 PORT = 8000
 API_PATH = "/api/teams"
+SOUNDS_API_PATH = "/api/sounds"
+SOUND_DIR = ROOT / "sounds"
+SOUND_SIDES = ("plus", "minus")
+SOUND_TYPES = {".ogg", ".mp3", ".wav", ".m4a", ".flac"}
 
 
 def parse_score(value):
@@ -41,6 +45,13 @@ def write_teams(teams):
 	os.replace(temp_path, CSV_PATH)
 
 
+def list_sounds():
+	return {
+		side: sorted(f"sounds/{side}/{path.name}" for path in (SOUND_DIR / side).glob("*") if path.suffix.lower() in SOUND_TYPES)
+		for side in SOUND_SIDES
+	}
+
+
 class Handler(SimpleHTTPRequestHandler):
 	def send_json(self, status, data):
 		body = json.dumps(data).encode("utf-8")
@@ -53,6 +64,8 @@ class Handler(SimpleHTTPRequestHandler):
 	def do_GET(self):
 		if self.path == API_PATH:
 			self.send_json(200, read_teams())
+		elif self.path == SOUNDS_API_PATH:
+			self.send_json(200, list_sounds())
 		else:
 			super().do_GET()
 

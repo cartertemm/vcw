@@ -338,14 +338,22 @@
 			Pink: "#ff7eb6",
 		};
 		const API_PATH = "/api/teams";
-		const TONE_SECONDS = 0.15;
-		const TONE_VOLUME = 0.2;
+		const SOUNDS_API_PATH = "/api/sounds";
+		const AUDIO_TYPES = {
+			ogg: 'audio/ogg; codecs="vorbis"',
+			mp3: "audio/mpeg",
+			wav: "audio/wav",
+			m4a: "audio/mp4",
+			flac: "audio/flac",
+		};
 
 		const main = document.querySelector("main");
 		const status = document.getElementById("status");
+		const audio = new (window.AudioContext || window.webkitAudioContext)();
+		const soundBuffers = { plus: [], minus: [] };
 		let teams = [];
 		let saveQueue = Promise.resolve();
-		let audio = null;
+		let playingSound = null;
 
 		function el(tag, props = {}, ...children) {
 			const node = document.createElement(tag);
@@ -370,18 +378,42 @@
 			return choices[Math.floor(Math.random() * choices.length)];
 		}
 
-		function playTone(startHz, endHz) {
-			audio ??= new (window.AudioContext || window.webkitAudioContext)();
-			const oscillator = audio.createOscillator();
-			const gain = audio.createGain();
-			const now = audio.currentTime;
-			oscillator.frequency.setValueAtTime(startHz, now);
-			oscillator.frequency.exponentialRampToValueAtTime(endHz, now + TONE_SECONDS);
-			gain.gain.setValueAtTime(TONE_VOLUME, now);
-			gain.gain.exponentialRampToValueAtTime(0.001, now + TONE_SECONDS);
-			oscillator.connect(gain).connect(audio.destination);
-			oscillator.start(now);
-			oscillator.stop(now + TONE_SECONDS);
+		function playableFiles(files) {
+			const probe = new Audio();
+			const byName = new Map();
+			for (const file of files) {
+				const extension = file.split(".").pop().toLowerCase();
+				if (!probe.canPlayType(AUDIO_TYPES[extension] || "")) continue;
+				const name = file.slice(0, -extension.length - 1);
+				if (!byName.has(name) || extension === "ogg") byName.set(name, file);
+			}
+			return [...byName.values()];
+		}
+
+		async function loadSounds() {
+			if (navigator.audioSession) navigator.audioSession.type = "playback";
+			const sounds = await fetch(SOUNDS_API_PATH).then(response => response.json()).catch(() => ({}));
+			for (const side of Object.keys(soundBuffers)) {
+				for (const file of playableFiles(sounds[side] || [])) {
+					fetch(encodeURI(file))
+						.then(response => response.arrayBuffer())
+						.then(data => new Promise((resolve, reject) => audio.decodeAudioData(data, resolve, reject)))
+						.then(buffer => { soundBuffers[side].push(buffer); })
+						.catch(() => {});
+				}
+			}
+		}
+
+		function playSound(side) {
+			if (audio.state === "suspended") audio.resume();
+			const buffers = soundBuffers[side];
+			if (!buffers.length) return;
+			const buffer = buffers[Math.floor(Math.random() * buffers.length)];
+			if (playingSound) playingSound.stop();
+			playingSound = audio.createBufferSource();
+			playingSound.buffer = buffer;
+			playingSound.connect(audio.destination);
+			playingSound.start();
 		}
 
 		function save() {
@@ -430,8 +462,7 @@
 			scoreNode.classList.remove("bump");
 			void scoreNode.offsetWidth;
 			scoreNode.classList.add("bump");
-			if (delta > 0) playTone(440, 880);
-			else playTone(660, 330);
+			playSound(delta > 0 ? "plus" : "minus");
 			announce(`${team.name}, ${newScore}`);
 			save();
 		}
@@ -514,6 +545,7 @@
 		}
 
 		document.getElementById("manage-button").onclick = showManage;
+		loadSounds();
 		load();
 	</script>
 </body>
