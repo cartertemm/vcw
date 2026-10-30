@@ -16,8 +16,6 @@ python server.py
 
 Then open http://localhost:8000 in your browser. Press Ctrl+C in the terminal to stop the server.
 
-The server is also open to other devices on your network, so you can keep score from a phone or show the board on a TV. It prints the address to use, such as `http://192.168.1.20:8000`. The first time you run it, Windows may ask if Python can use the network. Allow it for private networks. Anyone on your network can open the page and change scores.
-
 ## Use it
 
 1. Select **Manage teams**. This button is always at the top of the page.

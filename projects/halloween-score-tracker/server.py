@@ -1,7 +1,6 @@
 import csv
 import json
 import os
-import socket
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -9,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 CSV_PATH = ROOT / "teams.csv"
 FIELDS = ["name", "color", "score"]
-HOST = "0.0.0.0"
+HOST = "127.0.0.1"
 PORT = 8000
 API_PATH = "/api/teams"
 SOUNDS_API_PATH = "/api/sounds"
@@ -53,15 +52,6 @@ def list_sounds():
 	}
 
 
-def lan_address():
-	with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
-		try:
-			probe.connect(("10.255.255.255", 1))
-			return probe.getsockname()[0]
-		except OSError:
-			return None
-
-
 class Handler(SimpleHTTPRequestHandler):
 	def send_json(self, status, data):
 		body = json.dumps(data).encode("utf-8")
@@ -101,9 +91,6 @@ class Handler(SimpleHTTPRequestHandler):
 if __name__ == "__main__":
 	server = HTTPServer((HOST, PORT), partial(Handler, directory=str(ROOT)))
 	print(f"Halloween Score Tracker running at http://localhost:{PORT}")
-	address = lan_address()
-	if address:
-		print(f"On other devices on this network, open http://{address}:{PORT}")
 	print(f"Saving teams to {CSV_PATH}")
 	try:
 		server.serve_forever()
