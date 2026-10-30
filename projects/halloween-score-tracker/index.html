@@ -120,10 +120,12 @@
 		.scoreboard {
 			display: grid;
 			grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-			gap: 1.25rem;
+			gap: 3rem 1.25rem;
+			padding-top: 2.5rem;
 		}
 
 		.score-card {
+			position: relative;
 			display: grid;
 			grid-template-columns: auto 1fr auto;
 			grid-template-areas: "name name name" "minus score plus";
@@ -192,6 +194,45 @@
 		.score-card.dead .plus {
 			background: var(--team-live);
 			box-shadow: 0 4px 16px color-mix(in srgb, var(--team-live) 45%, transparent);
+		}
+
+		.leader-badge, .loser-badge {
+			position: absolute;
+			display: none;
+			pointer-events: none;
+		}
+
+		.score-card.leader .leader-badge, .score-card.loser .loser-badge {
+			display: block;
+		}
+
+		.leader-badge {
+			width: 4rem;
+			top: -2.6rem;
+			left: 50%;
+			transform: translateX(-50%) rotate(-8deg);
+			filter: drop-shadow(0 0 12px rgb(255 140 40 / 0.6));
+		}
+
+		.loser-badge {
+			width: 3.5rem;
+			top: -2.9rem;
+			right: 18%;
+		}
+
+		.score-card.dead .loser-badge {
+			top: -2.2rem;
+		}
+
+		.loser-badge .legs {
+			transform-box: view-box;
+			transform-origin: 30px 50px;
+			animation: swing 2.4s ease-in-out infinite alternate;
+		}
+
+		@keyframes swing {
+			from { transform: rotate(-6deg); }
+			to { transform: rotate(6deg); }
 		}
 
 		.score-card.rising {
@@ -398,6 +439,22 @@
 		};
 		const API_PATH = "/api/teams";
 		const SOUNDS_API_PATH = "/api/sounds";
+		const LEADER_BADGE = `<svg class="leader-badge" role="img" aria-label="Leader" viewBox="0 0 64 56">
+			<path d="M30 10 Q29 3 35 1 L36 4 Q33 5 34 10 Z" fill="#4c7a2a"/>
+			<ellipse cx="19" cy="33" rx="15" ry="20" fill="#d9661a"/>
+			<ellipse cx="45" cy="33" rx="15" ry="20" fill="#d9661a"/>
+			<ellipse cx="32" cy="33" rx="16" ry="22" fill="#f78c2a"/>
+			<path d="M17 28 L22 19 L27 28 Z M37 28 L42 19 L47 28 Z" fill="#ffd93d"/>
+			<path d="M16 37 Q32 53 48 37 L43 40 L39 36 L35 41 L32 37 L29 41 L25 36 L21 40 Z" fill="#ffd93d"/>
+		</svg>`;
+		const LOSER_BADGE = `<svg class="loser-badge" role="img" aria-label="Last place" viewBox="0 0 60 80" fill="none" stroke="#f0f1f4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+			<path d="M30 22 V48 M22 28 Q30 24 38 28 M21 33 Q30 29 39 33 M22 38 Q30 34 38 38 M22 26 L17 37 L13 49 M38 26 L43 37 L47 49 M23 48 Q30 54 37 48"/>
+			<g class="legs"><path d="M25 50 L18 56 L20 74 L15 76 M35 50 L42 56 L40 74 L45 76"/></g>
+			<circle cx="30" cy="12" r="10" fill="#f0f1f4" stroke="none"/>
+			<circle cx="26" cy="11" r="3" fill="#111" stroke="none"/>
+			<circle cx="34" cy="11" r="3" fill="#111" stroke="none"/>
+			<path d="M27 18 H33" stroke="#111" stroke-width="1.5"/>
+		</svg>`;
 		const AUDIO_TYPES = {
 			ogg: 'audio/ogg; codecs="vorbis"',
 			mp3: "audio/mpeg",
@@ -535,6 +592,7 @@
 			if (newScore === 0) message += ", RIP";
 			else if (wasDead) message += ", back from the dead";
 			announce(message);
+			updateRanks();
 			save();
 		}
 
@@ -546,11 +604,25 @@
 				minus.onclick = () => changeScore(team, -1, scoreNode, minus);
 				plus.onclick = () => changeScore(team, 1, scoreNode, minus);
 				const name = el("span", { className: "team-name", textContent: team.name });
-				return teamStyle(el("li", { className: team.score === 0 ? "score-card dead" : "score-card" }, name, minus, scoreNode, plus), team);
+				const card = el("li", { className: team.score === 0 ? "score-card dead" : "score-card" }, name, minus, scoreNode, plus);
+				card.insertAdjacentHTML("beforeend", LEADER_BADGE + LOSER_BADGE);
+				return teamStyle(card, team);
 			});
 			const title = heading("Scores");
 			title.className = "visually-hidden";
 			show(title, el("ul", { className: "scoreboard" }, ...rows));
+			updateRanks();
+		}
+
+		function updateRanks() {
+			const scores = teams.map(team => team.score);
+			const high = Math.max(...scores);
+			const low = Math.min(...scores);
+			document.querySelectorAll(".score-card").forEach((card, index) => {
+				const score = teams[index].score;
+				card.classList.toggle("leader", high > low && score === high);
+				card.classList.toggle("loser", high > low && score === low);
+			});
 		}
 
 		function removeTeam(team) {
