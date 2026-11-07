@@ -14,6 +14,7 @@ This document tracks both the status of the things that I've built (OK fine my a
 - Onion or Not. Determine whether a headline is real or came from The Onion. Harder than it sounds.
 - Rhythmic Captcha. the captchas you know and hate, except the only way to solve it is by repeating the rhythm you hear.
 - What They Know About You. A single-page web tool that reveals what information websites, trackers, and advertisers can learn about you through your browser.
+- Who Wanna Play? A live poll for groups of friends who can't decide what to do. Everyone adds ideas and votes Yes, No, or No preference, and results show only totals.
 
 ## Ideas
 
