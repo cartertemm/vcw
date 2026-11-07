@@ -3,6 +3,7 @@ import { navigate } from "./nav.js";
 import { clearAlert } from "./dom.js";
 import { renderHome } from "./home.js";
 import { renderActivity } from "./activity.js";
+import { renderEvent } from "./event.js";
 
 const main = document.getElementById("main");
 const nameButton = document.getElementById("name-button");
@@ -11,7 +12,7 @@ let firstRender = true;
 
 function pageFor(path) {
 	if (path === "") return renderHome;
-	return renderActivity;
+	return path.includes("/") ? renderActivity : renderEvent;
 }
 
 function route() {

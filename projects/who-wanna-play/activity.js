@@ -1,4 +1,4 @@
-import { announce, el, showAlert } from "./dom.js";
+import { announce, el, shareCard, showAlert } from "./dom.js";
 import { request } from "./api.js";
 import { getName, requireName } from "./name.js";
 import { runDialog } from "./dialogs.js";
@@ -22,10 +22,12 @@ import { VOTE_OPTIONS, applyRank, applyVote } from "./votes.js";
 
 const POLL_MS = 3000;
 const TICK_MS = 1000;
-const COPIED_MS = 2000;
 
-export function renderActivity(main, slug) {
-	const apiPath = `/activities/${encodeURIComponent(slug)}`;
+export function renderActivity(main, path) {
+	const [first, ...rest] = path.split("/");
+	const apiPath = rest.length
+		? `/events/${encodeURIComponent(first)}/activities/${encodeURIComponent(rest.join("/"))}`
+		: `/activities/${encodeURIComponent(first)}`;
 	const heading = el("h1", { tabIndex: -1 }, "Loading…");
 	const description = el("p", { className: "lead" });
 	const choiceList = el("ul", { className: "choice-list" });
@@ -97,8 +99,9 @@ export function renderActivity(main, slug) {
 		description.textContent = activity.description;
 		description.hidden = !activity.description;
 		resultTable = buildResultTable();
-		const shareInput = el("input", { id: "share-link", readOnly: true, value: `${location.origin}/${activity.slug}` });
-		const copyButton = el("button", { type: "button", onclick: () => copyLink(shareInput, copyButton) }, "Copy link");
+		if (activity.event) {
+			heading.before(el("p", { className: "breadcrumb" }, el("a", { href: `/${activity.event.slug}` }, `Part of ${activity.event.name}`)));
+		}
 		main.append(
 			description,
 			el("div", { className: "actions" },
@@ -121,12 +124,7 @@ export function renderActivity(main, slug) {
 				noResults,
 				resultTable,
 			),
-			el("div", { className: "card" },
-				el("h2", {}, "Share"),
-				el("p", {}, "You can share this poll with someone by giving them the link."),
-				el("label", { htmlFor: "share-link" }, "Link to this poll"),
-				el("div", { className: "share-row" }, shareInput, copyButton),
-			),
+			shareCard(activity.path, "You can share this poll with someone by giving them the link.", "Link to this poll"),
 		);
 	}
 
@@ -347,20 +345,6 @@ export function renderActivity(main, slug) {
 		} catch (error) {
 			bulkDraft = text;
 			showAlert(`The choices weren't added. ${error.message} Your text is kept, so fix it and try again.`);
-		}
-	}
-
-	async function copyLink(input, button) {
-		try {
-			await navigator.clipboard.writeText(input.value);
-			button.textContent = "Copied!";
-			setTimeout(() => {
-				button.textContent = "Copy link";
-			}, COPIED_MS);
-			announce("Link copied");
-		} catch {
-			input.select();
-			announce("Couldn't copy. The link is selected, so press Ctrl+C or Command+C.");
 		}
 	}
 

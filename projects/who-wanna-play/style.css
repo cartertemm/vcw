@@ -534,3 +534,8 @@ dialog .alert:not(:empty) {
 .card > .help {
 	margin: 0 0 1rem;
 }
+
+.breadcrumb {
+	margin: 1rem 0 0;
+	font-weight: 600;
+}

@@ -79,7 +79,7 @@ export function renderNotFound(main) {
 	document.title = "Not found | Who Wanna Play?";
 	main.append(
 		el("h1", { tabIndex: -1 }, "Not found"),
-		el("p", {}, "There's no activity at this link. Check the link, or start a new one."),
+		el("p", {}, "There's nothing at this link. Check the link, or start something new."),
 		el("a", { href: "/", className: "button" }, "Go home"),
 	);
 }

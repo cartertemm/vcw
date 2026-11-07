@@ -34,7 +34,7 @@ function typeField() {
 	);
 }
 
-export function openCreateDialog() {
+export function openCreateDialog({ event = null } = {}) {
 	const multipleYes = checkbox("multipleYes", "Allow multiple submissions from the same person?", "If unchecked, each person can vote Yes on only one choice.");
 	const types = typeField();
 	types.addEventListener("change", () => {
@@ -47,12 +47,15 @@ export function openCreateDialog() {
 		fields: [
 			...nameFields(),
 			types,
-			checkbox("listed", "Show on the main page?", "If unchecked, people can only open it with the link."),
-			advancedSection("",
+			checkbox("listed", event ? "Show on the event page?" : "Show on the main page?", "If unchecked, people can only open it with the link."),
+			advancedSection(event ? `${event}/` : "",
 				multipleYes,
 				field("revealAt", "Show results at", el("input", { id: "revealAt", name: "revealAt", type: "datetime-local" }), "Leave blank to always show results. Otherwise everyone sees a countdown until then."),
 			),
 		],
-		save: async (data, voter) => (await request("POST", "/activities", readForm(data, voter))).path,
+		save: async (data, voter) => {
+			const apiPath = event ? `/events/${encodeURIComponent(event)}/activities` : "/activities";
+			return (await request("POST", apiPath, readForm(data, voter))).path;
+		},
 	});
 }
