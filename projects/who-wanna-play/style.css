@@ -525,3 +525,8 @@ dialog::backdrop {
 .progress {
 	margin: 0 0 0.75rem;
 }
+
+dialog .alert:not(:empty) {
+	max-width: none;
+	margin: 1rem 0 0;
+}

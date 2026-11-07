@@ -2,7 +2,6 @@ import { askName, getName } from "./name.js";
 import { navigate } from "./nav.js";
 import { clearAlert } from "./dom.js";
 import { renderHome } from "./home.js";
-import { renderNewActivity } from "./new-activity.js";
 import { renderActivity } from "./activity.js";
 
 const main = document.getElementById("main");
@@ -12,7 +11,6 @@ let firstRender = true;
 
 function pageFor(path) {
 	if (path === "") return renderHome;
-	if (path === "new") return renderNewActivity;
 	return renderActivity;
 }
 
@@ -22,8 +20,7 @@ function route() {
 	main.replaceChildren();
 	const path = location.pathname.slice(1).replace(/\/+$/, "");
 	cleanup = pageFor(path)(main, path) ?? null;
-	const target = main.querySelector("[data-autofocus]") ?? (firstRender ? null : main.querySelector("h1"));
-	target?.focus();
+	if (!firstRender) main.querySelector("h1")?.focus();
 	firstRender = false;
 }
 

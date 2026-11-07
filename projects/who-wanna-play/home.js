@@ -1,5 +1,6 @@
 import { el } from "./dom.js";
 import { request } from "./api.js";
+import { openCreateDialog } from "./new-activity.js";
 
 const INTRO = [
 	"This was meant for those situations where a bunch of people are hanging out and no one knows exactly what they want to do and everyone has a bunch of ideas and so then you spend way too much time trying to keep track of what the majority of people want to do until someone's like \"I'm going to outback...\" despite the fact that no one likes or cares about outback and some people are vegetarians and other people had steak that night and so now really noone is happy but you do it anyway?",
@@ -23,7 +24,7 @@ export function renderHome(main) {
 		el("div", { className: "intro" }, ...INTRO.map((text) => el("p", {}, text))),
 		el("div", { className: "card" },
 			el("h2", {}, "Activities"),
-			el("a", { href: "/new", className: "button primary" }, "Add activity"),
+			el("button", { type: "button", className: "primary", onclick: openCreateDialog }, "Add activity"),
 			status,
 			list,
 		),

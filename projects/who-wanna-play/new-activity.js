@@ -1,4 +1,4 @@
-import { clearAlert, el, showAlert } from "./dom.js";
+import { el } from "./dom.js";
 import { request } from "./api.js";
 import { requireName } from "./name.js";
 import { navigate } from "./nav.js";
@@ -77,8 +77,10 @@ function typeField() {
 	);
 }
 
-export function renderNewActivity(main) {
-	document.title = "Add activity | Who Wanna Play?";
+export async function openCreateDialog() {
+	const voter = await requireName();
+	if (!voter) return;
+	const opener = document.activeElement;
 	const multipleYes = checkbox("multipleYes", "Allow multiple submissions from the same person?", "If unchecked, each person can vote Yes on only one choice.");
 	const types = typeField();
 	types.addEventListener("change", () => {
@@ -93,33 +95,46 @@ export function renderNewActivity(main) {
 	advanced.addEventListener("invalid", () => {
 		advanced.open = true;
 	}, true);
+	const error = el("p", { className: "alert", role: "alert" });
 	const submit = el("button", { type: "submit", className: "primary" }, "Create activity");
-	const form = el("form", { className: "card" },
-		field("name", "Name", el("input", { id: "name", name: "name", required: true, maxLength: 80, pattern: ".*\\S.*", "data-autofocus": "" })),
+	const form = el("form", {},
+		el("div", { className: "dialog-header" },
+			el("h2", { id: "create-dialog-title" }, "Add activity"),
+			el("button", { type: "button", "data-close": "", className: "close-button", "aria-label": "Close" }, "×"),
+		),
+		el("p", {}, "Set it up, then share the link with your friends."),
+		field("name", "Name", el("input", { id: "name", name: "name", required: true, maxLength: 80, pattern: ".*\\S.*", autofocus: true })),
 		field("description", "Description (optional)", el("textarea", { id: "description", name: "description", maxLength: 500, rows: 3 })),
 		types,
 		checkbox("listed", "Show on the main page?", "If unchecked, people can only open it with the link."),
 		advanced,
-		el("div", { className: "form-actions" }, submit),
+		error,
+		el("div", { className: "dialog-actions" },
+			el("button", { type: "button", "data-close": "" }, "Cancel"),
+			submit,
+		),
 	);
+	const dialog = el("dialog", { "aria-labelledby": "create-dialog-title" }, form);
+	let created = false;
+	dialog.addEventListener("close", () => {
+		dialog.remove();
+		if (!created) opener?.focus();
+	});
 	form.addEventListener("submit", async (event) => {
 		event.preventDefault();
-		clearAlert();
-		const voter = await requireName();
-		if (!voter) return;
+		error.textContent = "";
 		submit.disabled = true;
 		try {
 			const { slug } = await request("POST", "/activities", readForm(form, voter));
+			created = true;
+			dialog.close();
 			navigate(`/${slug}`);
-		} catch (error) {
-			showAlert(error.message);
+		} catch (failure) {
+			error.textContent = failure.message;
 		} finally {
 			submit.disabled = false;
 		}
 	});
-	main.append(
-		el("h1", { tabIndex: -1 }, "Add activity"),
-		el("p", { className: "lead" }, "Set it up, then share the link with your friends."),
-		form,
-	);
+	document.body.append(dialog);
+	dialog.showModal();
 }
