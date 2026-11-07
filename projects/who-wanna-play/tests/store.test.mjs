@@ -227,3 +227,62 @@ test("addChoices checks the voter, the list, and the limit", () => {
 	assert.equal(addChoices(state, "movie-night", { voter: "Sam", names: Array.from({ length: 50 }, (_, i) => `C${i}`) }).added.length, 50);
 	rejects(() => addChoices(state, "nope", { voter: "Sam", names: ["Pool"] }), 404);
 });
+
+function makeRanking(state) {
+	makeActivity(state, { type: "ranking" });
+	addChoices(state, "movie-night", { voter: "Sam", names: ["McDonalds", "Burger King", "Taco Bell"] });
+}
+
+test("createActivity stores the poll type and checks it", () => {
+	const state = emptyState();
+	assert.equal(makeActivity(state).type, "yesno");
+	assert.equal(makeActivity(state, { type: "ranking" }).type, "ranking");
+	rejects(() => makeActivity(state, { type: "trivia" }), 400);
+});
+
+test("setVote on a ranking poll swaps ranks and checks the range", () => {
+	const state = emptyState();
+	makeRanking(state);
+	const rank = (choiceId, value) => setVote(state, SECRET, "movie-night", { voter: "Sam", choiceId, value });
+	rank("c1", 1);
+	rank("c2", 2);
+	assert.deepEqual(rank("c3", 1), { c2: 2, c3: 1 });
+	assert.deepEqual(rank("c3", null), { c2: 2 });
+	rejects(() => rank("c1", 0), 400);
+	rejects(() => rank("c1", 4), 400);
+	rejects(() => rank("c1", 1.5), 400);
+	rejects(() => rank("c1", "yes"), 400);
+});
+
+test("ranking results count only complete rankings", () => {
+	const state = emptyState();
+	makeRanking(state);
+	const rankAll = (voter, ranks) => ranks.forEach((value, index) => setVote(state, SECRET, "movie-night", { voter, choiceId: `c${index + 1}`, value }));
+	rankAll("Sam", [1, 2, 3]);
+	rankAll("Jo", [2, 1, 3]);
+	setVote(state, SECRET, "movie-night", { voter: "Al", choiceId: "c3", value: 1 });
+	const view = publicView(getActivity(state, "movie-night"), SECRET, "Al", new Date());
+	assert.equal(view.type, "ranking");
+	assert.equal(view.ballots, 2);
+	assert.deepEqual(view.myVotes, { c3: 1 });
+	assert.deepEqual(view.results, {
+		c1: { points: 5, first: 1, average: 1.5 },
+		c2: { points: 5, first: 1, average: 1.5 },
+		c3: { points: 2, first: 0, average: 3 },
+	});
+	addChoice(state, "movie-night", { name: "Wendys", voter: "Sam" });
+	const after = publicView(getActivity(state, "movie-night"), SECRET, "", new Date());
+	assert.equal(after.ballots, 0);
+	assert.deepEqual(after.results.c4, { points: 0, first: 0, average: null });
+});
+
+test("activities saved before poll types count as yes or no", () => {
+	const state = emptyState();
+	const activity = makeActivity(state);
+	delete activity.type;
+	addChoice(state, "movie-night", { name: "A", voter: "Sam" });
+	assert.deepEqual(setVote(state, SECRET, "movie-night", { voter: "Sam", choiceId: "c1", value: "yes" }), { c1: "yes" });
+	const view = publicView(activity, SECRET, "", new Date());
+	assert.equal(view.type, "yesno");
+	assert.equal(view.ballots, undefined);
+});

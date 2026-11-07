@@ -142,3 +142,18 @@ test("add many choices in one request", async (t) => {
 	assert.equal(response.body.skipped, 1);
 	assert.equal((await call("GET", "/api/activities/movie-night")).body.choices.length, 2);
 });
+
+test("rank choices in a ranking poll", async (t) => {
+	const { call } = await start(t);
+	await call("POST", "/api/activities", { ...ACTIVITY, type: "ranking" });
+	await call("POST", "/api/activities/movie-night/choices", { voter: "Sam", names: ["A", "B"] });
+	await call("PUT", "/api/activities/movie-night/votes", { voter: "Sam", choiceId: "c1", value: 2 });
+	const swap = await call("PUT", "/api/activities/movie-night/votes", { voter: "Sam", choiceId: "c2", value: 2 });
+	assert.deepEqual(swap.body, { myVotes: { c2: 2 } });
+	await call("PUT", "/api/activities/movie-night/votes", { voter: "Sam", choiceId: "c1", value: 1 });
+	const view = await call("GET", "/api/activities/movie-night");
+	assert.equal(view.body.type, "ranking");
+	assert.equal(view.body.ballots, 1);
+	assert.deepEqual(view.body.results.c1, { points: 2, first: 1, average: 1 });
+	assert.equal((await call("PUT", "/api/activities/movie-night/votes", { voter: "Sam", choiceId: "c1", value: 3 })).status, 400);
+});

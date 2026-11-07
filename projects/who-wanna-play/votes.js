@@ -15,3 +15,14 @@ export function applyVote(votes, choiceId, value, multipleYes) {
 	else next[choiceId] = value;
 	return next;
 }
+
+export function applyRank(ranks, choiceId, rank) {
+	const next = { ...ranks };
+	const oldRank = next[choiceId];
+	const holder = Object.keys(next).find((id) => id !== choiceId && next[id] === rank);
+	if (rank === null) delete next[choiceId];
+	else next[choiceId] = rank;
+	if (holder && oldRank === undefined) delete next[holder];
+	else if (holder) next[holder] = oldRank;
+	return next;
+}

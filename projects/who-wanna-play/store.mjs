@@ -1,11 +1,12 @@
 import { createHmac } from "node:crypto";
-import { VOTE_OPTIONS, applyVote } from "./votes.js";
+import { VOTE_OPTIONS, applyRank, applyVote } from "./votes.js";
 
 export const LIMITS = { name: 80, description: 500, slug: 40, voter: 40 };
 export const MAX_BULK_CHOICES = 50;
 const VOTE_VALUES = VOTE_OPTIONS.map(([value]) => value);
 const RESERVED_SLUGS = new Set(["new", "api", "data"]);
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const POLL_TYPES = ["yesno", "ranking"];
 
 export class StoreError extends Error {
 	constructor(status, message) {
@@ -65,11 +66,22 @@ function parseRevealAt(value) {
 	return new Date(time).toISOString();
 }
 
+function parseType(value) {
+	if (value === undefined) return "yesno";
+	if (!POLL_TYPES.includes(value)) throw new StoreError(400, "Poll type must be yesno or ranking.");
+	return value;
+}
+
+function pollType(activity) {
+	return activity.type ?? "yesno";
+}
+
 export function createActivity(state, input, now = new Date()) {
 	cleanVoter(input.voter);
 	const name = cleanText(input.name, "Name", LIMITS.name, true);
 	const activity = {
 		slug: "",
+		type: parseType(input.type),
 		name,
 		description: cleanText(input.description, "Description", LIMITS.description, false),
 		listed: input.listed !== false,
@@ -141,8 +153,16 @@ export function setVote(state, secret, slug, input) {
 	const activity = getActivity(state, slug);
 	const code = voterCode(secret, slug, input.voter);
 	if (!activity.choices.some((choice) => choice.id === input.choiceId)) throw new StoreError(400, "That choice does not exist.");
-	if (input.value !== null && !VOTE_VALUES.includes(input.value)) throw new StoreError(400, "Vote must be yes, no, none, or null.");
-	const votes = applyVote(activity.votes[code] ?? {}, input.choiceId, input.value, activity.multipleYes);
+	const current = activity.votes[code] ?? {};
+	let votes;
+	if (pollType(activity) === "ranking") {
+		const valid = input.value === null || (Number.isInteger(input.value) && input.value >= 1 && input.value <= activity.choices.length);
+		if (!valid) throw new StoreError(400, `Rank must be a whole number from 1 to ${activity.choices.length}, or null.`);
+		votes = applyRank(current, input.choiceId, input.value);
+	} else {
+		if (input.value !== null && !VOTE_VALUES.includes(input.value)) throw new StoreError(400, "Vote must be yes, no, none, or null.");
+		votes = applyVote(current, input.choiceId, input.value, activity.multipleYes);
+	}
 	if (Object.keys(votes).length) activity.votes[code] = votes;
 	else delete activity.votes[code];
 	return votes;
@@ -156,11 +176,34 @@ export function tally(activity) {
 	return totals;
 }
 
+function rankingTally(activity) {
+	const count = activity.choices.length;
+	const ballots = Object.values(activity.votes).filter((ranks) => Object.keys(ranks).length === count);
+	const totals = Object.fromEntries(activity.choices.map(({ id }) => {
+		const ranks = ballots.map((ballot) => ballot[id]);
+		const sum = ranks.reduce((total, rank) => total + rank, 0);
+		return [id, {
+			points: ranks.reduce((total, rank) => total + count + 1 - rank, 0),
+			first: ranks.filter((rank) => rank === 1).length,
+			average: ranks.length ? Math.round((sum / ranks.length) * 10) / 10 : null,
+		}];
+	}));
+	return { ballots: ballots.length, totals };
+}
+
+function resultsView(activity, revealed) {
+	if (pollType(activity) !== "ranking") return { results: revealed ? tally(activity) : null };
+	if (!revealed) return { results: null, ballots: null };
+	const { ballots, totals } = rankingTally(activity);
+	return { results: totals, ballots };
+}
+
 export function publicView(activity, secret, voter, now) {
 	const revealed = !activity.revealAt || Date.parse(activity.revealAt) <= now.getTime();
 	const myVotes = voter ? activity.votes[voterCode(secret, activity.slug, voter)] ?? {} : {};
 	return {
 		slug: activity.slug,
+		type: pollType(activity),
 		name: activity.name,
 		description: activity.description,
 		listed: activity.listed,
@@ -169,6 +212,6 @@ export function publicView(activity, secret, voter, now) {
 		choices: activity.choices,
 		myVotes,
 		serverNow: now.toISOString(),
-		results: revealed ? tally(activity) : null,
+		...resultsView(activity, revealed),
 	};
 }
