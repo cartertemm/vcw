@@ -1,0 +1,149 @@
+import { createHmac } from "node:crypto";
+import { VOTE_OPTIONS, applyVote } from "./votes.js";
+
+export const LIMITS = { name: 80, description: 500, slug: 40, voter: 40 };
+const VOTE_VALUES = VOTE_OPTIONS.map(([value]) => value);
+const RESERVED_SLUGS = new Set(["new", "api", "data"]);
+const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+export class StoreError extends Error {
+	constructor(status, message) {
+		super(message);
+		this.status = status;
+	}
+}
+
+export function emptyState() {
+	return { activities: {} };
+}
+
+function cleanText(value, field, max, required) {
+	const text = typeof value === "string" ? value.trim() : "";
+	if (required && !text) throw new StoreError(400, `${field} is required.`);
+	if (text.length > max) throw new StoreError(400, `${field} must be ${max} characters or fewer.`);
+	return text;
+}
+
+function cleanVoter(voter) {
+	return cleanText(voter, "Your name", LIMITS.voter, true);
+}
+
+function trimSlug(text, max) {
+	return text.slice(0, max).replace(/-+$/, "");
+}
+
+export function slugify(name) {
+	const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+	return trimSlug(slug, LIMITS.slug) || "activity";
+}
+
+function isFree(state, slug) {
+	return !RESERVED_SLUGS.has(slug) && !(slug in state.activities);
+}
+
+function chooseSlug(state, requested, name) {
+	const typed = cleanText(requested, "Slug", LIMITS.slug, false).toLowerCase();
+	if (typed) {
+		if (!SLUG_PATTERN.test(typed)) throw new StoreError(400, "Slug can use only letters, numbers, and single hyphens.");
+		if (!isFree(state, typed)) throw new StoreError(409, "That slug is taken.");
+		return typed;
+	}
+	const base = slugify(name);
+	if (isFree(state, base)) return base;
+	for (let number = 2; ; number++) {
+		const suffix = `-${number}`;
+		const candidate = trimSlug(base, LIMITS.slug - suffix.length) + suffix;
+		if (isFree(state, candidate)) return candidate;
+	}
+}
+
+function parseRevealAt(value) {
+	if (value === null || value === undefined || value === "") return null;
+	const time = typeof value === "string" ? Date.parse(value) : NaN;
+	if (Number.isNaN(time)) throw new StoreError(400, "Show results at is not a valid date.");
+	return new Date(time).toISOString();
+}
+
+export function createActivity(state, input, now = new Date()) {
+	cleanVoter(input.voter);
+	const name = cleanText(input.name, "Name", LIMITS.name, true);
+	const activity = {
+		slug: "",
+		name,
+		description: cleanText(input.description, "Description", LIMITS.description, false),
+		listed: input.listed !== false,
+		multipleYes: input.multipleYes !== false,
+		revealAt: parseRevealAt(input.revealAt),
+		createdAt: now.toISOString(),
+		choices: [],
+		votes: {},
+	};
+	activity.slug = chooseSlug(state, input.slug, name);
+	state.activities[activity.slug] = activity;
+	return activity;
+}
+
+export function getActivity(state, slug) {
+	if (!Object.hasOwn(state.activities, slug)) throw new StoreError(404, "Activity not found.");
+	return state.activities[slug];
+}
+
+export function listActivities(state) {
+	return Object.values(state.activities)
+		.filter((activity) => activity.listed)
+		.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+		.map(({ slug, name, description }) => ({ slug, name, description }));
+}
+
+export function addChoice(state, slug, input) {
+	const activity = getActivity(state, slug);
+	cleanVoter(input.voter);
+	const choice = {
+		id: `c${activity.choices.length + 1}`,
+		name: cleanText(input.name, "Choice name", LIMITS.name, true),
+		description: cleanText(input.description, "Description", LIMITS.description, false),
+	};
+	activity.choices.push(choice);
+	return choice;
+}
+
+export function voterCode(secret, slug, voter) {
+	const name = cleanVoter(voter).toLowerCase();
+	return createHmac("sha256", secret).update(`${slug}\n${name}`).digest("hex");
+}
+
+export function setVote(state, secret, slug, input) {
+	const activity = getActivity(state, slug);
+	const code = voterCode(secret, slug, input.voter);
+	if (!activity.choices.some((choice) => choice.id === input.choiceId)) throw new StoreError(400, "That choice does not exist.");
+	if (input.value !== null && !VOTE_VALUES.includes(input.value)) throw new StoreError(400, "Vote must be yes, no, none, or null.");
+	const votes = applyVote(activity.votes[code] ?? {}, input.choiceId, input.value, activity.multipleYes);
+	if (Object.keys(votes).length) activity.votes[code] = votes;
+	else delete activity.votes[code];
+	return votes;
+}
+
+export function tally(activity) {
+	const totals = Object.fromEntries(activity.choices.map((choice) => [choice.id, { yes: 0, no: 0, none: 0 }]));
+	for (const votes of Object.values(activity.votes)) {
+		for (const [choiceId, value] of Object.entries(votes)) totals[choiceId][value] += 1;
+	}
+	return totals;
+}
+
+export function publicView(activity, secret, voter, now) {
+	const revealed = !activity.revealAt || Date.parse(activity.revealAt) <= now.getTime();
+	const myVotes = voter ? activity.votes[voterCode(secret, activity.slug, voter)] ?? {} : {};
+	return {
+		slug: activity.slug,
+		name: activity.name,
+		description: activity.description,
+		listed: activity.listed,
+		multipleYes: activity.multipleYes,
+		revealAt: activity.revealAt,
+		choices: activity.choices,
+		myVotes,
+		serverNow: now.toISOString(),
+		results: revealed ? tally(activity) : null,
+	};
+}
