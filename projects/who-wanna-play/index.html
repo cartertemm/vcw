@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Who Wanna Play?</title>
+	<link rel="stylesheet" href="/style.css">
+	<script type="module" src="/app.js"></script>
+</head>
+<body>
+	<a class="skip-link" href="#main">Skip to content</a>
+	<header class="site-header">
+		<a class="brand" href="/">Who Wanna Play?</a>
+		<div class="greeting">
+			<span id="greeting-text"></span>
+			<button type="button" id="name-button" class="link-button"></button>
+		</div>
+	</header>
+	<div id="alert" class="alert" role="alert"></div>
+	<main id="main" tabindex="-1"></main>
+	<div id="status" class="visually-hidden" role="status"></div>
+
+	<dialog id="name-dialog" aria-labelledby="name-dialog-title">
+		<form method="dialog">
+			<div class="dialog-header">
+				<h2 id="name-dialog-title">What's your name?</h2>
+				<button type="button" data-close class="close-button" aria-label="Close">×</button>
+			</div>
+			<p>You need a name to vote or add things. The app never shows who picked what. If you change your name, you start fresh as a new voter.</p>
+			<label for="name-input">Your name</label>
+			<input id="name-input" name="name" required maxlength="40" pattern=".*\S.*" autocomplete="nickname" autofocus>
+			<div class="dialog-actions">
+				<button type="button" data-close>Cancel</button>
+				<button value="save" class="primary">Save</button>
+			</div>
+		</form>
+	</dialog>
+
+	<dialog id="choice-dialog" aria-labelledby="choice-dialog-title">
+		<form method="dialog">
+			<div class="dialog-header">
+				<h2 id="choice-dialog-title">Add a choice</h2>
+				<button type="button" data-close class="close-button" aria-label="Close">×</button>
+			</div>
+			<label for="choice-name">Choice</label>
+			<input id="choice-name" name="name" required maxlength="80" pattern=".*\S.*" autofocus>
+			<label for="choice-description">Description (optional)</label>
+			<textarea id="choice-description" name="description" maxlength="500" rows="3"></textarea>
+			<div class="dialog-actions">
+				<button type="button" data-close>Cancel</button>
+				<button value="save" class="primary">Save</button>
+			</div>
+		</form>
+	</dialog>
+
+	<dialog id="rules-dialog" aria-labelledby="rules-dialog-title">
+		<form method="dialog">
+			<div class="dialog-header">
+				<h2 id="rules-dialog-title">How this poll works</h2>
+				<button type="button" data-close class="close-button" aria-label="Close">×</button>
+			</div>
+			<ul id="rules-list"></ul>
+			<div class="dialog-actions">
+				<button value="close" class="primary" autofocus>Got it</button>
+			</div>
+		</form>
+	</dialog>
+</body>
+</html>

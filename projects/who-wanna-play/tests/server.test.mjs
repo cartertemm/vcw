@@ -121,3 +121,14 @@ test("the key and data can never be downloaded", async (t) => {
 		assert.ok(!response.body.toString().includes("createCipheriv"), `source leaked at ${path}`);
 	}
 });
+
+test("every page path gets the app page, and browser files have the right type", async (t) => {
+	const { rawGet } = await start(t);
+	for (const path of ["/", "/new", "/movie-night", "/no/such/thing"]) {
+		const response = await rawGet(path);
+		assert.equal(response.status, 200);
+		assert.match(response.body.toString(), /<title>Who Wanna Play\?<\/title>/);
+	}
+	const script = await rawGet("/app.js");
+	assert.match(script.body.toString(), /import/);
+});
