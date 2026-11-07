@@ -2,6 +2,7 @@ import { askName, getName } from "./name.js";
 import { navigate } from "./nav.js";
 import { clearAlert } from "./dom.js";
 import { renderHome, renderNotFound } from "./home.js";
+import { renderNewActivity } from "./new-activity.js";
 
 const main = document.getElementById("main");
 const nameButton = document.getElementById("name-button");
@@ -10,6 +11,7 @@ let firstRender = true;
 
 function pageFor(path) {
 	if (path === "") return renderHome;
+	if (path === "new") return renderNewActivity;
 	return renderNotFound;
 }
 
