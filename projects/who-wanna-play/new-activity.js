@@ -95,7 +95,7 @@ export function renderNewActivity(main) {
 	}, true);
 	const submit = el("button", { type: "submit", className: "primary" }, "Create activity");
 	const form = el("form", { className: "card" },
-		field("name", "Name", el("input", { id: "name", name: "name", required: true, maxLength: 80, pattern: ".*\\S.*" })),
+		field("name", "Name", el("input", { id: "name", name: "name", required: true, maxLength: 80, pattern: ".*\\S.*", "data-autofocus": "" })),
 		field("description", "Description (optional)", el("textarea", { id: "description", name: "description", maxLength: 500, rows: 3 })),
 		types,
 		checkbox("listed", "Show on the main page?", "If unchecked, people can only open it with the link."),

@@ -22,7 +22,8 @@ function route() {
 	main.replaceChildren();
 	const path = location.pathname.slice(1).replace(/\/+$/, "");
 	cleanup = pageFor(path)(main, path) ?? null;
-	if (!firstRender) main.querySelector("h1")?.focus();
+	const target = main.querySelector("[data-autofocus]") ?? (firstRender ? null : main.querySelector("h1"));
+	target?.focus();
 	firstRender = false;
 }
 
