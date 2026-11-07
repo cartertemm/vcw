@@ -322,14 +322,83 @@ summary {
 	font-weight: 800;
 }
 
-.results h3 {
-	margin: 1.25rem 0 0.25rem;
+.table-wrap {
+	overflow-x: auto;
+	margin-top: 1rem;
 }
 
-.tally {
-	font-size: 1.1rem;
+.results-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
+}
+
+.results-table caption {
+	text-align: left;
+	font-weight: 700;
+	padding-bottom: 0.5rem;
+}
+
+.results-table th,
+.results-table td {
+	padding: 0.5rem 0.25rem;
+	border-bottom: 1px solid var(--border);
+	text-align: left;
+}
+
+.results-table thead th {
+	padding: 0;
+	border-bottom-width: 2px;
+}
+
+.results-table .number {
+	text-align: right;
+}
+
+.results-table tbody th {
 	font-weight: 600;
-	margin: 0;
+}
+
+.sort-button {
+	width: 100%;
+	min-width: 0;
+	gap: 0.2rem;
+	border: none;
+	border-radius: 6px;
+	padding: 0.25rem;
+	color: var(--text);
+	font-weight: 700;
+	justify-content: flex-start;
+}
+
+.number .sort-button {
+	justify-content: flex-end;
+}
+
+@media (max-width: 30rem) {
+	.card {
+		padding: 1rem 0.75rem;
+	}
+
+	.sort-button {
+		flex-wrap: wrap;
+		font-size: 0.9rem;
+	}
+}
+
+.sort-button::after {
+	content: "↕" / "";
+	color: var(--muted);
+}
+
+[aria-sort="ascending"] .sort-button::after {
+	content: "▲" / "";
+	color: var(--accent);
+}
+
+[aria-sort="descending"] .sort-button::after {
+	content: "▼" / "";
+	color: var(--accent);
 }
 
 .countdown {

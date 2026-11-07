@@ -30,8 +30,37 @@ export function countdownText(ms) {
 	return `Results in ${parts.join(", ")}`;
 }
 
-export function tallyText(totals = EMPTY_TOTALS) {
-	return VOTE_OPTIONS.map(([value, label]) => `${label} ${totals[value]}`).join(", ");
+export const RESULT_COLUMNS = [["name", "Choice"], ...VOTE_OPTIONS, ["score", "Score"]];
+const COLUMN_LABELS = Object.fromEntries(RESULT_COLUMNS);
+const DIRECTION_WORDS = {
+	name: { ascending: "A to Z", descending: "Z to A" },
+	number: { ascending: "lowest first", descending: "highest first" },
+};
+
+export function resultRows(choices, results) {
+	return choices.map(({ id, name }) => {
+		const totals = results[id] ?? EMPTY_TOTALS;
+		return { id, name, ...totals, score: totals.yes - totals.no };
+	});
+}
+
+export function sortRows(rows, sort) {
+	if (!sort) return rows;
+	const sign = sort.direction === "ascending" ? 1 : -1;
+	const compare = sort.key === "name"
+		? (a, b) => a.name.localeCompare(b.name)
+		: (a, b) => a[sort.key] - b[sort.key];
+	return [...rows].sort((a, b) => sign * compare(a, b));
+}
+
+export function nextSort(current, key) {
+	if (current?.key === key) return { key, direction: current.direction === "ascending" ? "descending" : "ascending" };
+	return { key, direction: key === "name" ? "ascending" : "descending" };
+}
+
+export function sortMessage(sort) {
+	const words = DIRECTION_WORDS[sort.key === "name" ? "name" : "number"][sort.direction];
+	return `Sorted by ${COLUMN_LABELS[sort.key]}, ${words}.`;
 }
 
 function plural(count, word) {

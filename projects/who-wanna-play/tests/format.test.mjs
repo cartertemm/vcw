@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PRIVACY_LINE, bulkAddedText, countdownText, rulesText, tallyText } from "../format.js";
+import { PRIVACY_LINE, bulkAddedText, countdownText, nextSort, resultRows, rulesText, sortMessage, sortRows } from "../format.js";
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -18,9 +18,47 @@ test("countdownText shows the two largest units", () => {
 	assert.equal(countdownText(3 * DAY + 4 * HOUR), "Results in 3 days, 4 hours");
 });
 
-test("tallyText lists every option, with zeros for missing totals", () => {
-	assert.equal(tallyText({ yes: 4, no: 1, none: 2 }), "Yes 4, No 1, No preference 2");
-	assert.equal(tallyText(undefined), "Yes 0, No 0, No preference 0");
+const CHOICES = [
+	{ id: "c1", name: "Pool" },
+	{ id: "c2", name: "bowling" },
+	{ id: "c3", name: "Darts" },
+];
+const RESULTS = {
+	c1: { yes: 2, no: 1, none: 0 },
+	c2: { yes: 2, no: 0, none: 1 },
+};
+
+test("resultRows adds a score and zeros for missing totals", () => {
+	assert.deepEqual(resultRows(CHOICES, RESULTS), [
+		{ id: "c1", name: "Pool", yes: 2, no: 1, none: 0, score: 1 },
+		{ id: "c2", name: "bowling", yes: 2, no: 0, none: 1, score: 2 },
+		{ id: "c3", name: "Darts", yes: 0, no: 0, none: 0, score: 0 },
+	]);
+});
+
+test("sortRows keeps added order with no sort and keeps ties stable", () => {
+	const rows = resultRows(CHOICES, RESULTS);
+	const ids = (sorted) => sorted.map((row) => row.id);
+	assert.deepEqual(ids(sortRows(rows, null)), ["c1", "c2", "c3"]);
+	assert.deepEqual(ids(sortRows(rows, { key: "yes", direction: "descending" })), ["c1", "c2", "c3"]);
+	assert.deepEqual(ids(sortRows(rows, { key: "yes", direction: "ascending" })), ["c3", "c1", "c2"]);
+	assert.deepEqual(ids(sortRows(rows, { key: "score", direction: "descending" })), ["c2", "c1", "c3"]);
+	assert.deepEqual(ids(sortRows(rows, { key: "name", direction: "ascending" })), ["c2", "c3", "c1"]);
+	assert.deepEqual(ids(rows), ["c1", "c2", "c3"]);
+});
+
+test("nextSort starts names A to Z, numbers highest first, and flips on repeat", () => {
+	assert.deepEqual(nextSort(null, "name"), { key: "name", direction: "ascending" });
+	assert.deepEqual(nextSort(null, "yes"), { key: "yes", direction: "descending" });
+	assert.deepEqual(nextSort({ key: "yes", direction: "descending" }, "yes"), { key: "yes", direction: "ascending" });
+	assert.deepEqual(nextSort({ key: "yes", direction: "ascending" }, "no"), { key: "no", direction: "descending" });
+});
+
+test("sortMessage describes the sort in words", () => {
+	assert.equal(sortMessage({ key: "yes", direction: "descending" }), "Sorted by Yes, highest first.");
+	assert.equal(sortMessage({ key: "none", direction: "ascending" }), "Sorted by No preference, lowest first.");
+	assert.equal(sortMessage({ key: "name", direction: "ascending" }), "Sorted by Choice, A to Z.");
+	assert.equal(sortMessage({ key: "name", direction: "descending" }), "Sorted by Choice, Z to A.");
 });
 
 test("rulesText describes the settings", () => {

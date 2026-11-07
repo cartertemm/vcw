@@ -3,7 +3,18 @@ import { request } from "./api.js";
 import { getName, requireName } from "./name.js";
 import { runDialog } from "./dialogs.js";
 import { renderNotFound } from "./home.js";
-import { PRIVACY_LINE, bulkAddedText, countdownText, formatDate, rulesText, tallyText } from "./format.js";
+import {
+	PRIVACY_LINE,
+	RESULT_COLUMNS,
+	bulkAddedText,
+	countdownText,
+	formatDate,
+	nextSort,
+	resultRows,
+	rulesText,
+	sortMessage,
+	sortRows,
+} from "./format.js";
 import { VOTE_OPTIONS, applyVote } from "./votes.js";
 
 const POLL_MS = 3000;
@@ -19,10 +30,13 @@ export function renderActivity(main, slug) {
 	const countdown = el("p", { className: "countdown" });
 	const revealDate = el("p", { className: "help" });
 	const noResults = el("p", {}, "Nothing to count yet.");
-	const resultList = el("div", { className: "results" });
+	const resultBody = el("tbody");
 	const bulkNote = el("p", { className: "help", hidden: true });
 	const cards = new Map();
-	const resultRows = new Map();
+	const tableRows = new Map();
+	const sortHeaders = new Map();
+	const resultTable = buildResultTable();
+	let sort = null;
 	let activity = null;
 	let myVotes = {};
 	let pendingVotes = 0;
@@ -98,7 +112,7 @@ export function renderActivity(main, slug) {
 				countdown,
 				revealDate,
 				noResults,
-				resultList,
+				resultTable,
 			),
 			el("div", { className: "card" },
 				el("h2", {}, "Share"),
@@ -131,15 +145,52 @@ export function renderActivity(main, slug) {
 		}
 	}
 
-	function updateResults() {
-		for (const choice of activity.choices) {
-			if (!resultRows.has(choice.id)) {
-				const row = el("p", { className: "tally" });
-				resultList.append(el("h3", {}, choice.name), row);
-				resultRows.set(choice.id, row);
-			}
-			resultRows.get(choice.id).textContent = tallyText(activity.results[choice.id]);
+	function buildResultTable() {
+		const headerCells = RESULT_COLUMNS.map(([key, label]) => {
+			const cell = el("th", { scope: "col", className: key === "name" ? "" : "number" },
+				el("button", { type: "button", className: "sort-button", onclick: () => sortBy(key) }, label),
+			);
+			sortHeaders.set(key, cell);
+			return cell;
+		});
+		return el("div", { className: "table-wrap" },
+			el("table", { className: "results-table" },
+				el("caption", {}, "Vote totals"),
+				el("thead", {}, el("tr", {}, ...headerCells)),
+				resultBody,
+			),
+		);
+	}
+
+	function tableRow(id, name) {
+		if (!tableRows.has(id)) {
+			const cells = new Map(RESULT_COLUMNS.slice(1).map(([key]) => [key, el("td", { className: "number" })]));
+			tableRows.set(id, { row: el("tr", {}, el("th", { scope: "row" }, name), ...cells.values()), cells });
 		}
+		return tableRows.get(id);
+	}
+
+	function updateResults() {
+		const rows = sortRows(resultRows(activity.choices, activity.results), sort);
+		const ordered = rows.map((data) => {
+			const { row, cells } = tableRow(data.id, data.name);
+			for (const [key, cell] of cells) {
+				const text = String(data[key]);
+				if (cell.textContent !== text) cell.textContent = text;
+			}
+			return row;
+		});
+		if (ordered.some((row, index) => resultBody.children[index] !== row)) resultBody.append(...ordered);
+	}
+
+	function sortBy(key) {
+		sort = nextSort(sort, key);
+		for (const [columnKey, cell] of sortHeaders) {
+			if (columnKey === sort.key) cell.setAttribute("aria-sort", sort.direction);
+			else cell.removeAttribute("aria-sort");
+		}
+		updateResults();
+		announce(sortMessage(sort));
 	}
 
 	function update() {
@@ -151,7 +202,7 @@ export function renderActivity(main, slug) {
 		const revealed = activity.results !== null;
 		countdown.hidden = revealed;
 		revealDate.hidden = revealed;
-		resultList.hidden = !revealed;
+		resultTable.hidden = !revealed || activity.choices.length === 0;
 		noResults.hidden = !revealed || activity.choices.length > 0;
 		if (revealed) {
 			updateResults();
