@@ -530,3 +530,7 @@ dialog .alert:not(:empty) {
 	max-width: none;
 	margin: 1rem 0 0;
 }
+
+.card > .help {
+	margin: 0 0 1rem;
+}

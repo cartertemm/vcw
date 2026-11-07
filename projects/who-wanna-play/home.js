@@ -1,6 +1,7 @@
 import { el } from "./dom.js";
 import { request } from "./api.js";
 import { openCreateDialog } from "./new-activity.js";
+import { openEventDialog } from "./new-event.js";
 
 const INTRO = [
 	"This was meant for those situations where a bunch of people are hanging out and no one knows exactly what they want to do and everyone has a bunch of ideas and so then you spend way too much time trying to keep track of what the majority of people want to do until someone's like \"I'm going to outback...\" despite the fact that no one likes or cares about outback and some people are vegetarians and other people had steak that night and so now really noone is happy but you do it anyway?",
@@ -15,19 +16,56 @@ const PRIVACY_POINTS = [
 ];
 const SOURCE_URL = "https://github.com/cartertemm/vcw/tree/main/projects/who-wanna-play";
 
+export function linkItems(items) {
+	return items.map((item) => el("li", {},
+		el("a", { href: `/${item.path ?? item.slug}` }, item.name),
+		item.description ? el("p", {}, item.description) : null,
+	));
+}
+
+function listCard({ heading, explanation, addLabel, onAdd, apiPath, emptyText }) {
+	const status = el("p", {}, "Loading…");
+	const list = el("ul", { className: "activity-list" });
+	request("GET", apiPath)
+		.then((items) => {
+			status.textContent = emptyText;
+			status.hidden = items.length > 0;
+			list.hidden = items.length === 0;
+			list.append(...linkItems(items));
+		})
+		.catch((error) => {
+			status.textContent = error.message;
+		});
+	return el("div", { className: "card" },
+		el("h2", {}, heading),
+		el("p", { className: "help" }, explanation),
+		el("button", { type: "button", className: "primary", onclick: onAdd }, addLabel),
+		status,
+		list,
+	);
+}
+
 export function renderHome(main) {
 	document.title = "Who Wanna Play?";
-	const status = el("p", {}, "Loading activities…");
-	const list = el("ul", { className: "activity-list" });
 	main.append(
 		el("h1", { tabIndex: -1 }, "Who Wanna Play?"),
 		el("div", { className: "intro" }, ...INTRO.map((text) => el("p", {}, text))),
-		el("div", { className: "card" },
-			el("h2", {}, "Activities"),
-			el("button", { type: "button", className: "primary", onclick: openCreateDialog }, "Add activity"),
-			status,
-			list,
-		),
+		listCard({
+			heading: "Events",
+			explanation: "An event is a get-together, like a Halloween party. It keeps all the polls for that day in one place, with one link to share.",
+			addLabel: "Add event",
+			onAdd: openEventDialog,
+			apiPath: "/events",
+			emptyText: "No public events yet. Add one!",
+		}),
+		listCard({
+			heading: "Activities",
+			explanation: "An activity is a single poll, like where to eat. The ones here are on their own, not part of an event.",
+			addLabel: "Add activity",
+			onAdd: () => openCreateDialog(),
+			apiPath: "/activities",
+			emptyText: "No public activities yet. Add one!",
+		}),
 		el("div", { className: "card" },
 			el("h2", {}, "Your privacy"),
 			el("p", {}, "This is all in good fun, but your data still deserves respect."),
@@ -35,18 +73,6 @@ export function renderHome(main) {
 			el("p", {}, "Don't want to trust us? You don't have to. ", el("a", { href: SOURCE_URL }, "Run your own copy"), "."),
 		),
 	);
-	request("GET", "/activities")
-		.then((activities) => {
-			status.textContent = "No public activities yet. Add one!";
-			status.hidden = activities.length > 0;
-			list.append(...activities.map((activity) => el("li", {},
-				el("a", { href: `/${activity.slug}` }, activity.name),
-				activity.description ? el("p", {}, activity.description) : null,
-			)));
-		})
-		.catch((error) => {
-			status.textContent = error.message;
-		});
 }
 
 export function renderNotFound(main) {

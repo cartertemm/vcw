@@ -38,6 +38,7 @@ const BROWSER_FILES = [
 	"home.js",
 	"new-activity.js",
 	"forms.js",
+	"new-event.js",
 	"format.js",
 	"votes.js",
 	"activity.js",
