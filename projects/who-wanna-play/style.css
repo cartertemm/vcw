@@ -41,6 +41,10 @@
 	box-sizing: border-box;
 }
 
+[hidden] {
+	display: none !important;
+}
+
 body {
 	margin: 0;
 	background: var(--bg);
@@ -229,6 +233,17 @@ textarea {
 
 .check label {
 	margin: 0;
+}
+
+.poll-type {
+	border: none;
+	margin: 1.5rem 0 0;
+	padding: 0;
+}
+
+.poll-type legend {
+	font-weight: 700;
+	padding: 0;
 }
 
 details {
