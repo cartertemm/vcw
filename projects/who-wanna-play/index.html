@@ -39,11 +39,11 @@
 	<dialog id="choice-dialog" aria-labelledby="choice-dialog-title">
 		<form method="dialog">
 			<div class="dialog-header">
-				<h2 id="choice-dialog-title" tabindex="-1" autofocus>Add a choice</h2>
+				<h2 id="choice-dialog-title">Add a choice</h2>
 				<button type="button" data-close class="close-button" aria-label="Close">×</button>
 			</div>
 			<label for="choice-name">Choice</label>
-			<input id="choice-name" name="name" required maxlength="80" pattern=".*\S.*">
+			<input id="choice-name" name="name" required maxlength="80" pattern=".*\S.*" autofocus>
 			<label for="choice-description">Description (optional)</label>
 			<textarea id="choice-description" name="description" maxlength="500" rows="3"></textarea>
 			<div class="dialog-actions">
@@ -56,11 +56,11 @@
 	<dialog id="bulk-dialog" aria-labelledby="bulk-dialog-title">
 		<form method="dialog">
 			<div class="dialog-header">
-				<h2 id="bulk-dialog-title" tabindex="-1" autofocus>Add multiple choices</h2>
+				<h2 id="bulk-dialog-title">Add multiple choices</h2>
 				<button type="button" data-close class="close-button" aria-label="Close">×</button>
 			</div>
 			<label for="bulk-names">Choices, one per line</label>
-			<textarea id="bulk-names" name="names" required rows="8" aria-describedby="bulk-help"></textarea>
+			<textarea id="bulk-names" name="names" required rows="8" aria-describedby="bulk-help" autofocus></textarea>
 			<p id="bulk-help" class="help">Up to 50 lines. Blank lines and duplicates are skipped.</p>
 			<div class="dialog-actions">
 				<button type="button" data-close>Cancel</button>
