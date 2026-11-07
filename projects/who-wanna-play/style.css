@@ -310,6 +310,27 @@ summary {
 	margin-top: 0.85rem;
 }
 
+.rank-row {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin-top: 0.85rem;
+}
+
+.rank-row label {
+	margin: 0;
+}
+
+select {
+	font: inherit;
+	min-height: 44px;
+	padding: 0.5rem 0.75rem;
+	border: 2px solid var(--border);
+	border-radius: 10px;
+	background: var(--bg);
+	color: var(--text);
+}
+
 .vote {
 	border-color: var(--vote-color);
 	color: var(--vote-color);
@@ -499,4 +520,8 @@ dialog::backdrop {
 			transform: translateY(6px);
 		}
 	}
+}
+
+.progress {
+	margin: 0 0 0.75rem;
 }

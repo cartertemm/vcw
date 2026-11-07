@@ -1,6 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PRIVACY_LINE, bulkAddedText, countdownText, nextSort, resultRows, rulesText, sortMessage, sortRows } from "../format.js";
+import {
+	PRIVACY_LINE,
+	bulkAddedText,
+	countdownText,
+	nextSort,
+	rankLabel,
+	rankingProgress,
+	resultCaption,
+	resultRows,
+	rulesText,
+	sortMessage,
+	sortRows,
+} from "../format.js";
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -78,4 +90,30 @@ test("bulkAddedText describes what was added and skipped", () => {
 	assert.equal(bulkAddedText(5, 0), "Added 5 choices.");
 	assert.equal(bulkAddedText(3, 1), "Added 3 choices. Skipped 1 duplicate.");
 	assert.equal(bulkAddedText(0, 2), "No new choices. Skipped 2 duplicates.");
+});
+
+test("resultRows for ranking fills missing totals", () => {
+	const results = { c1: { points: 5, first: 1, average: 1.5 } };
+	assert.deepEqual(resultRows(CHOICES.slice(0, 2), results, "ranking"), [
+		{ id: "c1", name: "Pool", points: 5, first: 1, average: 1.5 },
+		{ id: "c2", name: "bowling", points: 0, first: 0, average: null },
+	]);
+	assert.equal(sortMessage({ key: "average", direction: "ascending" }), "Sorted by Average rank, lowest first.");
+});
+
+test("ranking helper text", () => {
+	assert.equal(resultCaption("yesno", undefined), "Vote totals");
+	assert.equal(resultCaption("ranking", 1), "Points from 1 complete ranking");
+	assert.equal(resultCaption("ranking", 0), "Points from 0 complete rankings");
+	assert.deepEqual([1, 2, 3].map((rank) => rankLabel(rank, 3)), ["1 (favorite)", "2", "3 (least favorite)"]);
+	assert.equal(rankingProgress(0, 0), "");
+	assert.equal(rankingProgress(2, 3), "You ranked 2 of 3. Rank every choice so your vote counts.");
+	assert.equal(rankingProgress(3, 3), "Your ranking is complete and counts.");
+});
+
+test("rulesText describes ranking polls", () => {
+	const rules = rulesText({ type: "ranking", multipleYes: true, revealAt: null, listed: true });
+	assert.ok(rules.includes("If you pick a rank another choice already has, the two swap."));
+	assert.ok(!rules.some((line) => line.includes("Yes on")));
+	assert.ok(rules.includes(PRIVACY_LINE));
 });

@@ -10,12 +10,15 @@ import {
 	countdownText,
 	formatDate,
 	nextSort,
+	rankLabel,
+	rankingProgress,
+	resultCaption,
 	resultRows,
 	rulesText,
 	sortMessage,
 	sortRows,
 } from "./format.js";
-import { VOTE_OPTIONS, applyVote } from "./votes.js";
+import { VOTE_OPTIONS, applyRank, applyVote } from "./votes.js";
 
 const POLL_MS = 3000;
 const TICK_MS = 1000;
@@ -32,10 +35,12 @@ export function renderActivity(main, slug) {
 	const noResults = el("p", {}, "Nothing to count yet.");
 	const resultBody = el("tbody");
 	const bulkNote = el("p", { className: "help", hidden: true });
+	const rankingNote = el("p", { className: "help progress", hidden: true });
+	const caption = el("caption");
 	const cards = new Map();
 	const tableRows = new Map();
 	const sortHeaders = new Map();
-	const resultTable = buildResultTable();
+	let resultTable = null;
 	let sort = null;
 	let activity = null;
 	let myVotes = {};
@@ -91,6 +96,7 @@ export function renderActivity(main, slug) {
 		heading.textContent = activity.name;
 		description.textContent = activity.description;
 		description.hidden = !activity.description;
+		resultTable = buildResultTable();
 		const shareInput = el("input", { id: "share-link", readOnly: true, value: `${location.origin}/${activity.slug}` });
 		const copyButton = el("button", { type: "button", onclick: () => copyLink(shareInput, copyButton) }, "Copy link");
 		main.append(
@@ -103,6 +109,7 @@ export function renderActivity(main, slug) {
 			bulkNote,
 			el("div", {},
 				el("h2", {}, "Choices"),
+				rankingNote,
 				noChoices,
 				choiceList,
 			),
@@ -123,30 +130,72 @@ export function renderActivity(main, slug) {
 		);
 	}
 
-	function addCard(choice) {
-		const headingId = `choice-${choice.id}`;
+	function isRanking() {
+		return activity.type === "ranking";
+	}
+
+	function voteButtons(choice, headingId) {
 		const buttons = new Map(VOTE_OPTIONS.map(([value, label]) => [value, el("button", {
 			type: "button",
 			className: `vote vote-${value}`,
 			"aria-pressed": "false",
 			onclick: () => vote(choice.id, value),
 		}, label)]));
+		cards.set(choice.id, buttons);
+		return el("div", { role: "group", "aria-labelledby": headingId, className: "vote-group" }, ...buttons.values());
+	}
+
+	function rankPicker(choice) {
+		const id = `rank-${choice.id}`;
+		const select = el("select", { id });
+		select.addEventListener("change", () => vote(choice.id, select.value ? Number(select.value) : null));
+		cards.set(choice.id, select);
+		return el("div", { className: "rank-row" },
+			el("label", { htmlFor: id }, "Rank", el("span", { className: "visually-hidden" }, ` for ${choice.name}`)),
+			select,
+		);
+	}
+
+	function addCard(choice) {
+		const headingId = `choice-${choice.id}`;
 		choiceList.append(el("li", { className: "choice" },
 			el("h3", { id: headingId }, choice.name),
 			choice.description ? el("p", {}, choice.description) : null,
-			el("div", { role: "group", "aria-labelledby": headingId, className: "vote-group" }, ...buttons.values()),
+			isRanking() ? rankPicker(choice) : voteButtons(choice, headingId),
 		));
-		cards.set(choice.id, buttons);
 	}
 
-	function renderPressed() {
-		for (const [choiceId, buttons] of cards) {
-			for (const [value, button] of buttons) button.setAttribute("aria-pressed", String(myVotes[choiceId] === value));
+	function fillRankOptions(select, total) {
+		if (select.options.length === total + 1) return;
+		select.replaceChildren(
+			el("option", { value: "" }, "Not ranked"),
+			...Array.from({ length: total }, (_, index) => el("option", { value: String(index + 1) }, rankLabel(index + 1, total))),
+		);
+	}
+
+	function renderVotes() {
+		const total = activity.choices.length;
+		for (const [choiceId, card] of cards) {
+			if (card instanceof Map) {
+				for (const [value, button] of card) button.setAttribute("aria-pressed", String(myVotes[choiceId] === value));
+			} else {
+				fillRankOptions(card, total);
+				card.value = String(myVotes[choiceId] ?? "");
+			}
 		}
+		rankingNote.hidden = !isRanking() || total === 0;
+		rankingNote.textContent = isRanking() ? rankingProgress(Object.keys(myVotes).length, total) : "";
+	}
+
+	function swapMessage(previous, choiceId) {
+		const holder = activity.choices.find(({ id }) => id !== choiceId && previous[id] !== undefined && previous[id] === myVotes[choiceId]);
+		if (!holder) return "";
+		const rank = myVotes[holder.id];
+		return rank === undefined ? `${holder.name} is no longer ranked.` : `${holder.name} moved to ${rank}.`;
 	}
 
 	function buildResultTable() {
-		const headerCells = RESULT_COLUMNS.map(([key, label]) => {
+		const headerCells = RESULT_COLUMNS[activity.type].map(([key, label]) => {
 			const cell = el("th", { scope: "col", className: key === "name" ? "" : "number" },
 				el("button", { type: "button", className: "sort-button", onclick: () => sortBy(key) }, label),
 			);
@@ -155,7 +204,7 @@ export function renderActivity(main, slug) {
 		});
 		return el("div", { className: "table-wrap" },
 			el("table", { className: "results-table" },
-				el("caption", {}, "Vote totals"),
+				caption,
 				el("thead", {}, el("tr", {}, ...headerCells)),
 				resultBody,
 			),
@@ -164,18 +213,19 @@ export function renderActivity(main, slug) {
 
 	function tableRow(id, name) {
 		if (!tableRows.has(id)) {
-			const cells = new Map(RESULT_COLUMNS.slice(1).map(([key]) => [key, el("td", { className: "number" })]));
+			const cells = new Map(RESULT_COLUMNS[activity.type].slice(1).map(([key]) => [key, el("td", { className: "number" })]));
 			tableRows.set(id, { row: el("tr", {}, el("th", { scope: "row" }, name), ...cells.values()), cells });
 		}
 		return tableRows.get(id);
 	}
 
 	function updateResults() {
-		const rows = sortRows(resultRows(activity.choices, activity.results), sort);
+		caption.textContent = resultCaption(activity.type, activity.ballots);
+		const rows = sortRows(resultRows(activity.choices, activity.results, activity.type), sort);
 		const ordered = rows.map((data) => {
 			const { row, cells } = tableRow(data.id, data.name);
 			for (const [key, cell] of cells) {
-				const text = String(data[key]);
+				const text = String(data[key] ?? "None");
 				if (cell.textContent !== text) cell.textContent = text;
 			}
 			return row;
@@ -198,7 +248,7 @@ export function renderActivity(main, slug) {
 			if (!cards.has(choice.id)) addCard(choice);
 		}
 		noChoices.hidden = activity.choices.length > 0;
-		renderPressed();
+		renderVotes();
 		const revealed = activity.results !== null;
 		countdown.hidden = revealed;
 		revealDate.hidden = revealed;
@@ -221,13 +271,23 @@ export function renderActivity(main, slug) {
 
 	async function vote(choiceId, value) {
 		const voter = await requireName();
-		if (!voter || stopped) return;
-		const next = myVotes[choiceId] === value ? null : value;
+		if (stopped) return;
+		if (!voter) return renderVotes();
 		const previous = myVotes;
-		myVotes = applyVote(myVotes, choiceId, next, activity.multipleYes);
+		let next = value;
+		if (isRanking()) {
+			myVotes = applyRank(myVotes, choiceId, next);
+			const total = activity.choices.length;
+			const complete = Object.keys(myVotes).length === total ? rankingProgress(total, total) : "";
+			const message = [swapMessage(previous, choiceId), complete].filter(Boolean).join(" ");
+			if (message) announce(message);
+		} else {
+			next = myVotes[choiceId] === value ? null : value;
+			myVotes = applyVote(myVotes, choiceId, next, activity.multipleYes);
+		}
 		pendingVotes += 1;
 		voteVersion += 1;
-		renderPressed();
+		renderVotes();
 		try {
 			const response = await request("PUT", `${apiPath}/votes`, { voter, choiceId, value: next });
 			if (pendingVotes === 1) myVotes = response.myVotes;
@@ -237,7 +297,7 @@ export function renderActivity(main, slug) {
 			showAlert(`Your vote didn't save. ${error.message}`);
 		} finally {
 			pendingVotes -= 1;
-			if (!stopped) renderPressed();
+			if (!stopped) renderVotes();
 		}
 	}
 
