@@ -5,9 +5,12 @@ import {
 	addChoice,
 	addChoices,
 	createActivity,
+	createEvent,
 	emptyState,
+	eventView,
 	getActivity,
 	listActivities,
+	listEvents,
 	publicView,
 	setVote,
 	slugify,
@@ -285,4 +288,84 @@ test("activities saved before poll types count as yes or no", () => {
 	const view = publicView(activity, SECRET, "", new Date());
 	assert.equal(view.type, "yesno");
 	assert.equal(view.ballots, undefined);
+});
+
+test("createEvent makes events that share top-level slugs with activities", () => {
+	const state = emptyState();
+	const event = createEvent(state, { name: "Halloween", description: " Spooky ", voter: "Sam" });
+	assert.deepEqual({ ...event, createdAt: undefined }, { slug: "halloween", name: "Halloween", description: "Spooky", listed: true, createdAt: undefined });
+	assert.equal(createActivity(state, { name: "Halloween", voter: "Sam" }).slug, "halloween-2");
+	assert.equal(createEvent(state, { name: "Movie night", voter: "Sam" }).slug, "movie-night");
+	rejects(() => makeActivity(state, { slug: "movie-night" }), 409);
+	rejects(() => createEvent(state, { name: "X", voter: "Sam", slug: "halloween-2" }), 409);
+	rejects(() => createEvent(state, { name: "X", voter: "Sam", slug: "new" }), 409);
+	rejects(() => createEvent(state, { name: "X" }), 400);
+	rejects(() => createEvent(state, { name: " ", voter: "Sam" }), 400);
+});
+
+test("event activities live under the event path", () => {
+	const state = emptyState();
+	createEvent(state, { name: "Halloween", voter: "Sam" });
+	createEvent(state, { name: "Birthday", voter: "Sam" });
+	const food = createActivity(state, { name: "Food", voter: "Sam" }, new Date(), "halloween");
+	assert.equal(food.slug, "food");
+	assert.equal(food.path, "halloween/food");
+	assert.equal(food.event, "halloween");
+	assert.equal(createActivity(state, { name: "Food", voter: "Sam" }, new Date(), "birthday").path, "birthday/food");
+	assert.equal(createActivity(state, { name: "Food", voter: "Sam" }, new Date(), "halloween").path, "halloween/food-2");
+	assert.equal(createActivity(state, { name: "Food", voter: "Sam" }).path, "food");
+	rejects(() => createActivity(state, { name: "Food", voter: "Sam", slug: "food" }, new Date(), "halloween"), 409);
+	rejects(() => createActivity(state, { name: "Food", voter: "Sam" }, new Date(), "nope"), 404);
+	assert.equal(getActivity(state, "halloween/food").name, "Food");
+});
+
+test("lists keep event activities off the main page", () => {
+	const state = emptyState();
+	createEvent(state, { name: "Halloween", voter: "Sam" }, new Date("2026-01-01"));
+	createEvent(state, { name: "Secret", voter: "Sam", listed: false }, new Date("2026-01-02"));
+	createActivity(state, { name: "Food", voter: "Sam" }, new Date("2026-01-03"), "halloween");
+	createActivity(state, { name: "Hidden", voter: "Sam", listed: false }, new Date("2026-01-04"), "halloween");
+	createActivity(state, { name: "Games", voter: "Sam" }, new Date("2026-01-05"), "halloween");
+	createActivity(state, { name: "Solo", voter: "Sam" }, new Date("2026-01-06"));
+	assert.deepEqual(listEvents(state), [{ slug: "halloween", name: "Halloween", description: "" }]);
+	assert.deepEqual(listActivities(state).map((activity) => activity.slug), ["solo"]);
+	assert.deepEqual(eventView(state, "halloween"), {
+		slug: "halloween",
+		name: "Halloween",
+		description: "",
+		listed: true,
+		activities: [
+			{ slug: "games", name: "Games", description: "", path: "halloween/games" },
+			{ slug: "food", name: "Food", description: "", path: "halloween/food" },
+		],
+	});
+	rejects(() => eventView(state, "nope"), 404);
+	rejects(() => eventView(state, "constructor"), 404);
+});
+
+test("votes in event activities use the path for voter codes", () => {
+	const state = emptyState();
+	createEvent(state, { name: "Halloween", voter: "Sam" });
+	const food = createActivity(state, { name: "Food", voter: "Sam" }, new Date(), "halloween");
+	addChoice(state, "halloween/food", { name: "Pizza", voter: "Sam" });
+	setVote(state, SECRET, "halloween/food", { voter: "Sam", choiceId: "c1", value: "yes" });
+	assert.deepEqual(Object.keys(food.votes), [voterCode(SECRET, "halloween/food", "Sam")]);
+	const view = publicView(food, SECRET, "sam", new Date(), { slug: "halloween", name: "Halloween" });
+	assert.deepEqual(view.myVotes, { c1: "yes" });
+	assert.equal(view.path, "halloween/food");
+	assert.deepEqual(view.event, { slug: "halloween", name: "Halloween" });
+	assert.equal(publicView(makeActivity(state), SECRET, "", new Date()).event, null);
+});
+
+test("activities saved before events keep working", () => {
+	const state = { activities: {} };
+	const activity = makeActivity(state);
+	delete activity.path;
+	delete activity.event;
+	addChoice(state, "movie-night", { name: "A", voter: "Sam" });
+	setVote(state, SECRET, "movie-night", { voter: "Sam", choiceId: "c1", value: "yes" });
+	const view = publicView(activity, SECRET, "Sam", new Date());
+	assert.equal(view.path, "movie-night");
+	assert.deepEqual(view.myVotes, { c1: "yes" });
+	assert.deepEqual(listActivities(state).map((item) => item.slug), ["movie-night"]);
 });

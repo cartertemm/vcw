@@ -16,7 +16,7 @@ export class StoreError extends Error {
 }
 
 export function emptyState() {
-	return { activities: {} };
+	return { activities: {}, events: {} };
 }
 
 function cleanText(value, field, max, required) {
@@ -39,23 +39,28 @@ export function slugify(name) {
 	return trimSlug(slug, LIMITS.slug) || "activity";
 }
 
-function isFree(state, slug) {
-	return !RESERVED_SLUGS.has(slug) && !(slug in state.activities);
+function joinPath(eventSlug, slug) {
+	return eventSlug ? `${eventSlug}/${slug}` : slug;
 }
 
-function chooseSlug(state, requested, name) {
+function isFree(state, slug, eventSlug) {
+	if (RESERVED_SLUGS.has(slug) || joinPath(eventSlug, slug) in state.activities) return false;
+	return Boolean(eventSlug) || !(slug in (state.events ?? {}));
+}
+
+function chooseSlug(state, requested, name, eventSlug = null) {
 	const typed = cleanText(requested, "Slug", LIMITS.slug, false).toLowerCase();
 	if (typed) {
 		if (!SLUG_PATTERN.test(typed)) throw new StoreError(400, "Slug can use only letters, numbers, and single hyphens.");
-		if (!isFree(state, typed)) throw new StoreError(409, "That slug is taken.");
+		if (!isFree(state, typed, eventSlug)) throw new StoreError(409, "That slug is taken.");
 		return typed;
 	}
 	const base = slugify(name);
-	if (isFree(state, base)) return base;
+	if (isFree(state, base, eventSlug)) return base;
 	for (let number = 2; ; number++) {
 		const suffix = `-${number}`;
 		const candidate = trimSlug(base, LIMITS.slug - suffix.length) + suffix;
-		if (isFree(state, candidate)) return candidate;
+		if (isFree(state, candidate, eventSlug)) return candidate;
 	}
 }
 
@@ -76,7 +81,52 @@ function pollType(activity) {
 	return activity.type ?? "yesno";
 }
 
-export function createActivity(state, input, now = new Date()) {
+export function createEvent(state, input, now = new Date()) {
+	cleanVoter(input.voter);
+	const name = cleanText(input.name, "Name", LIMITS.name, true);
+	const event = {
+		slug: "",
+		name,
+		description: cleanText(input.description, "Description", LIMITS.description, false),
+		listed: input.listed !== false,
+		createdAt: now.toISOString(),
+	};
+	event.slug = chooseSlug(state, input.slug, name);
+	state.events[event.slug] = event;
+	return event;
+}
+
+export function getEvent(state, slug) {
+	if (!Object.hasOwn(state.events, slug)) throw new StoreError(404, "Event not found.");
+	return state.events[slug];
+}
+
+function newestFirst(a, b) {
+	return b.createdAt.localeCompare(a.createdAt);
+}
+
+export function listEvents(state) {
+	return Object.values(state.events)
+		.filter((event) => event.listed)
+		.sort(newestFirst)
+		.map(({ slug, name, description }) => ({ slug, name, description }));
+}
+
+export function eventView(state, slug) {
+	const { name, description, listed } = getEvent(state, slug);
+	const activities = Object.values(state.activities)
+		.filter((activity) => activity.event === slug && activity.listed)
+		.sort(newestFirst)
+		.map((activity) => ({ slug: activity.slug, name: activity.name, description: activity.description, path: activity.path }));
+	return { slug, name, description, listed, activities };
+}
+
+function activityPath(activity) {
+	return activity.path ?? activity.slug;
+}
+
+export function createActivity(state, input, now = new Date(), eventSlug = null) {
+	if (eventSlug) getEvent(state, eventSlug);
 	cleanVoter(input.voter);
 	const name = cleanText(input.name, "Name", LIMITS.name, true);
 	const activity = {
@@ -91,8 +141,10 @@ export function createActivity(state, input, now = new Date()) {
 		choices: [],
 		votes: {},
 	};
-	activity.slug = chooseSlug(state, input.slug, name);
-	state.activities[activity.slug] = activity;
+	activity.slug = chooseSlug(state, input.slug, name, eventSlug);
+	activity.path = joinPath(eventSlug, activity.slug);
+	activity.event = eventSlug;
+	state.activities[activity.path] = activity;
 	return activity;
 }
 
@@ -103,8 +155,8 @@ export function getActivity(state, slug) {
 
 export function listActivities(state) {
 	return Object.values(state.activities)
-		.filter((activity) => activity.listed)
-		.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+		.filter((activity) => activity.listed && !activity.event)
+		.sort(newestFirst)
 		.map(({ slug, name, description }) => ({ slug, name, description }));
 }
 
@@ -198,11 +250,14 @@ function resultsView(activity, revealed) {
 	return { results: totals, ballots };
 }
 
-export function publicView(activity, secret, voter, now) {
+export function publicView(activity, secret, voter, now, event = null) {
 	const revealed = !activity.revealAt || Date.parse(activity.revealAt) <= now.getTime();
-	const myVotes = voter ? activity.votes[voterCode(secret, activity.slug, voter)] ?? {} : {};
+	const path = activityPath(activity);
+	const myVotes = voter ? activity.votes[voterCode(secret, path, voter)] ?? {} : {};
 	return {
 		slug: activity.slug,
+		path,
+		event,
 		type: pollType(activity),
 		name: activity.name,
 		description: activity.description,

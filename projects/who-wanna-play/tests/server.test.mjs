@@ -39,7 +39,7 @@ const ACTIVITY = { name: "Movie night", voter: "Sam" };
 
 test("create, list, and read an activity", async (t) => {
 	const { call } = await start(t);
-	assert.deepEqual(await call("POST", "/api/activities", ACTIVITY), { status: 201, body: { slug: "movie-night" } });
+	assert.deepEqual(await call("POST", "/api/activities", ACTIVITY), { status: 201, body: { slug: "movie-night", path: "movie-night" } });
 	await call("POST", "/api/activities", { name: "Hidden", voter: "Sam", listed: false });
 	const list = await call("GET", "/api/activities");
 	assert.deepEqual(list.body, [{ slug: "movie-night", name: "Movie night", description: "" }]);
@@ -156,4 +156,38 @@ test("rank choices in a ranking poll", async (t) => {
 	assert.equal(view.body.ballots, 1);
 	assert.deepEqual(view.body.results.c1, { points: 2, first: 1, average: 1 });
 	assert.equal((await call("PUT", "/api/activities/movie-night/votes", { voter: "Sam", choiceId: "c1", value: 3 })).status, 400);
+});
+
+test("events hold their own activities", async (t) => {
+	const { call } = await start(t);
+	assert.deepEqual(await call("POST", "/api/events", { name: "Halloween", voter: "Sam" }), { status: 201, body: { slug: "halloween" } });
+	await call("POST", "/api/events", { name: "Birthday", voter: "Sam", listed: false });
+	assert.deepEqual((await call("GET", "/api/events")).body, [{ slug: "halloween", name: "Halloween", description: "" }]);
+	const created = await call("POST", "/api/events/halloween/activities", { name: "Food", voter: "Sam" });
+	assert.deepEqual(created, { status: 201, body: { slug: "food", path: "halloween/food" } });
+	assert.equal((await call("POST", "/api/events/birthday/activities", { name: "Food", voter: "Sam" })).body.path, "birthday/food");
+	assert.deepEqual((await call("POST", "/api/activities", { name: "Food", voter: "Sam" })).body, { slug: "food", path: "food" });
+	const event = await call("GET", "/api/events/halloween");
+	assert.equal(event.body.name, "Halloween");
+	assert.deepEqual(event.body.activities.map((activity) => activity.path), ["halloween/food"]);
+	assert.deepEqual((await call("GET", "/api/activities")).body.map((activity) => activity.slug), ["food"]);
+	const base = "/api/events/halloween/activities/food";
+	await call("POST", `${base}/choices`, { name: "Pizza", voter: "Sam" });
+	assert.deepEqual((await call("PUT", `${base}/votes`, { voter: "Sam", choiceId: "c1", value: "yes" })).body, { myVotes: { c1: "yes" } });
+	const view = await call("GET", `${base}?voter=sam`);
+	assert.deepEqual(view.body.event, { slug: "halloween", name: "Halloween" });
+	assert.equal(view.body.path, "halloween/food");
+	assert.deepEqual(view.body.myVotes, { c1: "yes" });
+	assert.equal((await call("GET", "/api/activities/food")).body.event, null);
+});
+
+test("event routes return 404 for missing things", async (t) => {
+	const { call } = await start(t);
+	await call("POST", "/api/events", { name: "Halloween", voter: "Sam" });
+	assert.deepEqual(await call("GET", "/api/events/nope"), { status: 404, body: { error: "Event not found." } });
+	assert.equal((await call("POST", "/api/events/nope/activities", { name: "Food", voter: "Sam" })).status, 404);
+	assert.equal((await call("GET", "/api/events/halloween/activities/nope")).status, 404);
+	assert.equal((await call("GET", "/api/events/halloween/other")).status, 404);
+	assert.equal((await call("GET", "/api/events/halloween/activities/food/votes/x")).status, 404);
+	assert.equal((await call("POST", "/api/events", { name: "X", voter: "Sam", slug: "halloween" })).status, 409);
 });
