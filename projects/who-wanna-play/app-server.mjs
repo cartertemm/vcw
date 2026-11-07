@@ -2,7 +2,7 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { StoreError, addChoice, createActivity, emptyState, getActivity, listActivities, publicView, setVote } from "./store.mjs";
+import { StoreError, addChoice, addChoices, createActivity, emptyState, getActivity, listActivities, publicView, setVote } from "./store.mjs";
 import { openVault } from "./vault.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -76,9 +76,10 @@ export async function createAppServer({ dataDir = process.env.WWP_DATA_DIR || jo
 			return sendJson(res, 200, publicView(getActivity(state, slug), vault.voterSecret, voter, new Date()));
 		}
 		if (slug && action === "choices" && req.method === "POST") {
-			const choice = addChoice(state, slug, await readJson(req));
+			const body = await readJson(req);
+			const result = "names" in body ? addChoices(state, slug, body) : addChoice(state, slug, body);
 			await vault.save(state);
-			return sendJson(res, 201, choice);
+			return sendJson(res, 201, result);
 		}
 		if (slug && action === "votes" && req.method === "PUT") {
 			const myVotes = setVote(state, vault.voterSecret, slug, await readJson(req));

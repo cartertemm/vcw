@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { VOTE_OPTIONS, applyVote } from "./votes.js";
 
 export const LIMITS = { name: 80, description: 500, slug: 40, voter: 40 };
+export const MAX_BULK_CHOICES = 50;
 const VOTE_VALUES = VOTE_OPTIONS.map(([value]) => value);
 const RESERVED_SLUGS = new Set(["new", "api", "data"]);
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -105,6 +106,30 @@ export function addChoice(state, slug, input) {
 	};
 	activity.choices.push(choice);
 	return choice;
+}
+
+export function addChoices(state, slug, input) {
+	const activity = getActivity(state, slug);
+	cleanVoter(input.voter);
+	if (!Array.isArray(input.names)) throw new StoreError(400, "Choices must be a list.");
+	const lines = input.names
+		.map((name, index) => cleanText(name, `Line ${index + 1}`, LIMITS.name, false))
+		.filter(Boolean);
+	if (!lines.length) throw new StoreError(400, "Add at least one choice.");
+	if (lines.length > MAX_BULK_CHOICES) throw new StoreError(400, `You can add up to ${MAX_BULK_CHOICES} choices at once.`);
+	const seen = new Set(activity.choices.map((choice) => choice.name.toLowerCase()));
+	const names = lines.filter((name) => {
+		const key = name.toLowerCase();
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+	const added = names.map((name) => {
+		const choice = { id: `c${activity.choices.length + 1}`, name, description: "" };
+		activity.choices.push(choice);
+		return choice;
+	});
+	return { added, skipped: lines.length - names.length };
 }
 
 export function voterCode(secret, slug, voter) {

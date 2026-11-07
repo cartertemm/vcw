@@ -53,6 +53,22 @@
 		</form>
 	</dialog>
 
+	<dialog id="bulk-dialog" aria-labelledby="bulk-dialog-title">
+		<form method="dialog">
+			<div class="dialog-header">
+				<h2 id="bulk-dialog-title">Add multiple choices</h2>
+				<button type="button" data-close class="close-button" aria-label="Close">×</button>
+			</div>
+			<label for="bulk-names">Choices, one per line</label>
+			<textarea id="bulk-names" name="names" required rows="8" aria-describedby="bulk-help" autofocus></textarea>
+			<p id="bulk-help" class="help">Up to 50 lines. Blank lines and duplicates are skipped.</p>
+			<div class="dialog-actions">
+				<button type="button" data-close>Cancel</button>
+				<button value="save" class="primary">Save</button>
+			</div>
+		</form>
+	</dialog>
+
 	<dialog id="rules-dialog" aria-labelledby="rules-dialog-title">
 		<form method="dialog">
 			<div class="dialog-header">

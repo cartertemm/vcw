@@ -34,6 +34,15 @@ export function tallyText(totals = EMPTY_TOTALS) {
 	return VOTE_OPTIONS.map(([value, label]) => `${label} ${totals[value]}`).join(", ");
 }
 
+function plural(count, word) {
+	return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+export function bulkAddedText(added, skipped) {
+	const first = added ? `Added ${plural(added, "choice")}.` : "No new choices.";
+	return skipped ? `${first} Skipped ${plural(skipped, "duplicate")}.` : first;
+}
+
 export function rulesText(activity) {
 	return [
 		"You can vote Yes, No, or No preference on each choice, or skip any of them.",

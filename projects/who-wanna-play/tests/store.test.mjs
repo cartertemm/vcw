@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
 	StoreError,
 	addChoice,
+	addChoices,
 	createActivity,
 	emptyState,
 	getActivity,
@@ -190,4 +191,39 @@ test("publicView shows results right away when there is no reveal time", () => {
 	const state = emptyState();
 	const activity = makeActivity(state);
 	assert.deepEqual(publicView(activity, SECRET, "", new Date()).results, {});
+});
+
+test("addChoices adds many choices, skipping blanks and duplicates", () => {
+	const state = emptyState();
+	makeActivity(state);
+	addChoice(state, "movie-night", { name: "Bowling", voter: "Sam" });
+	const result = addChoices(state, "movie-night", { voter: "Sam", names: [" Pool ", "", "bowling", "Darts", "pool", "  "] });
+	assert.deepEqual(result, {
+		added: [
+			{ id: "c2", name: "Pool", description: "" },
+			{ id: "c3", name: "Darts", description: "" },
+		],
+		skipped: 2,
+	});
+});
+
+test("addChoices adds nothing when any line is bad", () => {
+	const state = emptyState();
+	makeActivity(state);
+	assert.throws(
+		() => addChoices(state, "movie-night", { voter: "Sam", names: ["Pool", "", "x".repeat(81)] }),
+		(error) => error.status === 400 && error.message === "Line 3 must be 80 characters or fewer.",
+	);
+	assert.deepEqual(getActivity(state, "movie-night").choices, []);
+});
+
+test("addChoices checks the voter, the list, and the limit", () => {
+	const state = emptyState();
+	makeActivity(state);
+	rejects(() => addChoices(state, "movie-night", { names: ["Pool"] }), 400);
+	rejects(() => addChoices(state, "movie-night", { voter: "Sam", names: "Pool" }), 400);
+	rejects(() => addChoices(state, "movie-night", { voter: "Sam", names: ["", " "] }), 400);
+	rejects(() => addChoices(state, "movie-night", { voter: "Sam", names: Array.from({ length: 51 }, (_, i) => `C${i}`) }), 400);
+	assert.equal(addChoices(state, "movie-night", { voter: "Sam", names: Array.from({ length: 50 }, (_, i) => `C${i}`) }).added.length, 50);
+	rejects(() => addChoices(state, "nope", { voter: "Sam", names: ["Pool"] }), 404);
 });

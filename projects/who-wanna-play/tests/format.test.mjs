@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PRIVACY_LINE, countdownText, rulesText, tallyText } from "../format.js";
+import { PRIVACY_LINE, bulkAddedText, countdownText, rulesText, tallyText } from "../format.js";
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -33,4 +33,11 @@ test("rulesText describes the settings", () => {
 	assert.ok(strict.includes("You can vote Yes on only one choice. A new Yes replaces your old one."));
 	assert.ok(strict.some((line) => line.startsWith("Results show on ")));
 	assert.ok(strict.includes("Only people with the link can find this activity."));
+});
+
+test("bulkAddedText describes what was added and skipped", () => {
+	assert.equal(bulkAddedText(1, 0), "Added 1 choice.");
+	assert.equal(bulkAddedText(5, 0), "Added 5 choices.");
+	assert.equal(bulkAddedText(3, 1), "Added 3 choices. Skipped 1 duplicate.");
+	assert.equal(bulkAddedText(0, 2), "No new choices. Skipped 2 duplicates.");
 });

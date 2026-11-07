@@ -3,7 +3,7 @@ import { request } from "./api.js";
 import { getName, requireName } from "./name.js";
 import { runDialog } from "./dialogs.js";
 import { renderNotFound } from "./home.js";
-import { PRIVACY_LINE, countdownText, formatDate, rulesText, tallyText } from "./format.js";
+import { PRIVACY_LINE, bulkAddedText, countdownText, formatDate, rulesText, tallyText } from "./format.js";
 import { VOTE_OPTIONS, applyVote } from "./votes.js";
 
 const POLL_MS = 3000;
@@ -20,6 +20,7 @@ export function renderActivity(main, slug) {
 	const revealDate = el("p", { className: "help" });
 	const noResults = el("p", {}, "Nothing to count yet.");
 	const resultList = el("div", { className: "results" });
+	const bulkNote = el("p", { className: "help", hidden: true });
 	const cards = new Map();
 	const resultRows = new Map();
 	let activity = null;
@@ -31,6 +32,7 @@ export function renderActivity(main, slug) {
 	let inFlight = null;
 	let built = false;
 	let stopped = false;
+	let bulkDraft = "";
 	main.append(heading);
 
 	async function load() {
@@ -82,7 +84,9 @@ export function renderActivity(main, slug) {
 			el("div", { className: "actions" },
 				el("button", { type: "button", onclick: showRules }, "Show rules"),
 				el("button", { type: "button", className: "primary", onclick: addChoiceFlow }, "Add choice"),
+				el("button", { type: "button", onclick: addManyFlow }, "Add multiple choices"),
 			),
+			bulkNote,
 			el("section", { "aria-labelledby": "choices-heading" },
 				el("h2", { id: "choices-heading" }, "Choices"),
 				noChoices,
@@ -202,11 +206,36 @@ export function renderActivity(main, slug) {
 				name: data.get("name"),
 				description: data.get("description"),
 			});
-			if (!activity.choices.some((existing) => existing.id === choice.id)) activity.choices.push(choice);
+			addLocalChoice(choice);
 			update();
 			announce(`Added ${choice.name}.`);
 		} catch (error) {
 			showAlert(`The choice wasn't added. ${error.message}`);
+		}
+	}
+
+	function addLocalChoice(choice) {
+		if (!activity.choices.some((existing) => existing.id === choice.id)) activity.choices.push(choice);
+	}
+
+	async function addManyFlow() {
+		const voter = await requireName();
+		if (!voter) return;
+		const data = await runDialog(document.getElementById("bulk-dialog"), { names: bulkDraft });
+		if (!data || stopped) return;
+		const text = data.get("names");
+		try {
+			const { added, skipped } = await request("POST", `${apiPath}/choices`, { voter, names: text.split(/\r?\n/) });
+			bulkDraft = "";
+			added.forEach(addLocalChoice);
+			update();
+			const message = bulkAddedText(added.length, skipped);
+			bulkNote.textContent = message;
+			bulkNote.hidden = false;
+			announce(message);
+		} catch (error) {
+			bulkDraft = text;
+			showAlert(`The choices weren't added. ${error.message} Your text is kept, so fix it and try again.`);
 		}
 	}
 

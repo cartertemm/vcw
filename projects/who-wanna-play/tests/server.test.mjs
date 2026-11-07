@@ -132,3 +132,13 @@ test("every page path gets the app page, and browser files have the right type",
 	const script = await rawGet("/app.js");
 	assert.match(script.body.toString(), /import/);
 });
+
+test("add many choices in one request", async (t) => {
+	const { call } = await start(t);
+	await call("POST", "/api/activities", ACTIVITY);
+	const response = await call("POST", "/api/activities/movie-night/choices", { voter: "Sam", names: ["Pool", "pool", "Darts"] });
+	assert.equal(response.status, 201);
+	assert.deepEqual(response.body.added.map((choice) => choice.name), ["Pool", "Darts"]);
+	assert.equal(response.body.skipped, 1);
+	assert.equal((await call("GET", "/api/activities/movie-night")).body.choices.length, 2);
+});
